@@ -11,8 +11,9 @@ import xml.etree.cElementTree as ElementTree
 import attr
 import cldfbench
 import nexus
+from nexus.handlers.tree import Tree as NexusTree
 
-__all__ = ['Dataset', 'Metadata']
+__all__ = ['Dataset', 'Metadata', 'NexusFile', 'BeastFile']
 SCALING = [
     'none',           # no branch lengths
     'change',         # parsimony steps
@@ -23,7 +24,7 @@ SCALING = [
 ]
 
 
-def check_tree(tree, lids, log):
+def check_tree(tree: NexusTree, lids, log):
     lids = copy.copy(lids)
     for node in tree.newick_tree.walk():
         if node.name == 'root':
@@ -65,6 +66,14 @@ class NexusFile:
         for i, tree in enumerate(self._trees, start=1):
             nex.trees.append(format_tree(tree, default_label='tree{}'.format(i)))
         nex.write_to_file(self.path)
+
+
+class BeastFile:
+    def __init__(self, path):
+        self.path = path
+
+    def to_nexus(self):
+        return beast_to_nexus(self.path)
 
 
 @attr.s
@@ -125,7 +134,7 @@ class Dataset(cldfbench.Dataset):
             fcmd = cmd + [str(d / 'in.nex'), '-o', str(d / 'out.nex')]
             try:
                 subprocess.check_call(fcmd)
-            except:
+            except:  # noqa: E722
                 i = '{}.nex'.format(uuid.uuid1())
                 shutil.copy(d / 'in.nex', i)
                 raise ValueError('Running "{} {}" failed'.format(' '.join(cmd), i))
@@ -221,12 +230,16 @@ class Dataset(cldfbench.Dataset):
         ))
 
     def add_data(self, args, input):
-        nex = input if isinstance(input, (nexus.NexusReader, nexus.NexusWriter)) \
-            else nexus.NexusReader(input)
+        if isinstance(input, BeastFile):
+            nex = input.to_nexus()
+        else:
+            nex = input if isinstance(input, (nexus.NexusReader, nexus.NexusWriter)) \
+                else nexus.NexusReader(input)
         assert all(t in self._lids for t in nex.data.taxa)
         assert all(t in self._lids for t in nex.data.matrix)
         #
-        # FIXME: more validation! E.g. whether number of charstatelabels matches number of sites in matrix.
+        # FIXME: more validation! E.g. whether number of charstatelabels matches number of sites
+        # in matrix.
         #
         nex.write_to_file(self.cldf_dir / 'data.nex')
         #
@@ -261,10 +274,27 @@ class Dataset(cldfbench.Dataset):
 def beast_to_nexus(filename, valid_states="01?"):
     nex = nexus.NexusWriter()
     xml = ElementTree.parse(str(filename))
+    #
+    # <sequence>
+    # <taxon idref=""/>
+    # 1111111
+    # </sequence>
+    #
+    seq_found = False
     for seq in xml.findall('./data/sequence'):
+        seq_found = True
         for i, state in enumerate([s for s in seq.get('value') if s != ' '], start=1):
             assert state in valid_states, 'Invalid State %s' % state
             nex.add(seq.get('taxon'), i, state)
+
+    if not seq_found:
+        for seq in xml.findall('.//sequence[taxon]'):
+            data = (seq.text.strip() if seq.text else None) or seq.find('taxon').tail.strip()
+            assert data, ElementTree.tostring(seq).decode('utf8').replace('\n', '')
+            for i, state in enumerate(list(data), start=1):
+                assert state in valid_states, 'Invalid State %s' % state
+                nex.add(seq.find('taxon').get('idref'), i, state)
+
     #
     # Now serialze and hack in the charstatelabel block!
     #
