@@ -1,6 +1,5 @@
 import copy
 import gzip
-import uuid
 import shlex
 import shutil
 import pathlib
@@ -11,17 +10,81 @@ import xml.etree.cElementTree as ElementTree
 import attr
 import cldfbench
 import nexus
+import newick
+import ete3
+from pycldf.terms import TERMS
 from nexus.handlers.tree import Tree as NexusTree
 
-__all__ = ['Dataset', 'Metadata', 'NexusFile', 'BeastFile']
+__all__ = ['Dataset', 'Metadata', 'NexusFile', 'BeastFile', 'render_summary_tree']
 SCALING = [
-    'none',           # no branch lengths
-    'change',         # parsimony steps
+    'none',  # no branch lengths
+    'change',  # parsimony steps
     'substitutions',  # change
-    'years',          # years
-    'centuries',      # centuries
-    'millennia',      # millennia
+    'years',  # years
+    'centuries',  # centuries
+    'millennia',  # millennia
 ]
+
+
+def render_summary_tree(cldf, output, w=183, units='mm'):
+    gcodes = {r['ID']: (r['Glottocode'], r.get('Glottolog_Name'))
+              for r in cldf['LanguageTable'] if r['Glottocode']}
+
+    def rename(n):
+        if n.name in gcodes:
+            n.name = "{}--{}".format(n.name, gcodes[n.name][0])
+
+    for row in cldf['trees.csv']:
+        if row['type'] == 'summary':
+            tree = nexus.NexusReader(cldf.directory / row['Nexus_File']).trees.trees[0]
+            nwk = newick.loads(tree.newick_string, strip_comments=True)[0]
+            nwk.visit(rename)
+            tree = ete3.Tree(nwk.newick + ';')
+            tree.render(str(output), w=w, units=units)
+            svg = ElementTree.fromstring(output.read_text(encoding='utf8'))
+            for t in svg.findall('.//{http://www.w3.org/2000/svg}text'):
+                lid, _, gcode = t.text.strip().partition('--')
+                if gcode:
+                    se = ElementTree.SubElement(t, '{http://www.w3.org/2000/svg}text')
+                    gname = gcodes[lid][1]
+                    if gname:
+                        se.text = '{} - {} [{}]'.format(lid, gname, gcode)
+                    else:
+                        se.text = '{} - [{}]'.format(lid, gcode)
+                    se.attrib = copy.copy(t.attrib)
+                    se.attrib['fill'] = '#0000ff'
+                    t.tag = '{http://www.w3.org/2000/svg}a'
+                    t.attrib = {
+                        'href': 'https://glottolog.org/resource/languoid/id/{}'.format(gcode),
+                        'title': 'The glottolog name',
+                    }
+                    t.text = None
+            output.write_bytes(ElementTree.tostring(svg))
+
+
+def add_columns(args, table, obj, exclude=None):
+    existing = [c.name for c in args.writer.cldf[table].tableSchema.columns]
+    exclude = exclude or []
+    new = []
+    for k in obj.keys():
+        if k not in exclude:
+            col = TERMS[k].to_column() if k in TERMS else k
+            if getattr(col, 'name', k) in existing:
+                args.log.error('Duplicate column name {} for {}'.format(k, table))
+                continue
+            new.append(col)
+
+    args.writer.cldf.add_columns(table, *new)
+
+
+def add_obj(args, table, d, row, rename=None):
+    rename = rename or {}
+    for k, v in (row or {}).items():
+        k = rename.get(k, k)
+        if k in TERMS:
+            k = TERMS[k].to_column().name
+        d[k] = v
+    args.writer.objects[table].append(d)
 
 
 def check_tree(tree: NexusTree, lids, log):
@@ -72,7 +135,7 @@ class BeastFile:
     def __init__(self, path):
         self.path = path
 
-    def to_nexus(self):
+    def nexus_and_characters(self):
         return beast_to_nexus(self.path)
 
 
@@ -102,9 +165,33 @@ class Dataset(cldfbench.Dataset):
     def cmd_download(self, args):
         pass
 
+    def _cmd_makecldf(self, args):
+        cldfbench.Dataset._cmd_makecldf(self, args)
+        render_summary_tree(self.cldf_reader(), self.dir / 'summary_tree.svg')
+
+    def _cmd_readme(self, args):
+        cldfbench.Dataset._cmd_readme(self, args)
+        if self.dir.joinpath('summary_tree.svg').exists():
+            text = self.dir.joinpath('README.md').read_text(encoding='utf8')
+            text += '\n\n## Summary Tree\n\n![summary](./summary_tree.svg)'
+            self.dir.joinpath('README.md').write_text(text, encoding='utf8')
+
     def read_gzipped_text(self, p):
         with gzip.open(p) as fp:
             return fp.read().decode('utf8')
+
+    def _read_from_etc(self, name):
+        if (self.etc_dir / name).exists():
+            return list(self.etc_dir.read_csv(name, dicts=True))
+        return []
+
+    @property
+    def taxa(self):
+        return self._read_from_etc('taxa.csv')
+
+    @property
+    def characters(self):
+        return self._read_from_etc('characters.csv')
 
     def read_trees(self, p, detranslate=False):
         nex = nexus.NexusReader(p)
@@ -121,32 +208,58 @@ class Dataset(cldfbench.Dataset):
     def nexus_posterior(self):
         return NexusFile(self.cldf_dir / 'posterior.trees')
 
-    def run_nexus(self, cmd, input):
+    def run_treeannotator(self, cmd, input):
         with tempfile.TemporaryDirectory() as d:
             d = pathlib.Path(d)
-            if isinstance(input, str):
-                d.joinpath('in.nex').write_text(input, encoding='utf8')
-            else:
-                shutil.copy(input, d / 'in.nex')
+            in_ = d / 'in.nex'
+            in_.write_text(input, encoding='utf8')
+            out = d / 'out.nex'
+            subprocess.check_call(
+                ['treeannotator'] + shlex.split(cmd) + [str(in_), str(out)],
+                stderr=subprocess.DEVNULL,
+            )
+            return nexus.NexusReader.from_string(out.read_text(encoding='utf8'))
+
+    def run_nexus(self, cmd, *inputs):
+        with tempfile.TemporaryDirectory() as d:
+            d = pathlib.Path(d)
+            ips = []
+            for i, input in enumerate(inputs, start=1):
+                ip = d / 'in{}.nex'.format(i)
+                if isinstance(input, str):
+                    ip.write_text(input, encoding='utf8')
+                else:
+                    shutil.copy(input, ip)
+                ips.append(str(ip))
+
             cmd = shlex.split(cmd)
             if cmd[0] != 'nexus':
                 cmd = ['nexus'] + cmd
-            fcmd = cmd + [str(d / 'in.nex'), '-o', str(d / 'out.nex')]
+            fcmd = cmd + ips + ['-o', str(d / 'out.nex')]
             try:
                 subprocess.check_call(fcmd)
             except:  # noqa: E722
-                i = '{}.nex'.format(uuid.uuid1())
-                shutil.copy(d / 'in.nex', i)
-                raise ValueError('Running "{} {}" failed'.format(' '.join(cmd), i))
+                raise ValueError('Running "{}" failed'.format(' '.join(cmd)))
             return d.joinpath('out.nex').read_text(encoding='utf8')
 
     def remove_burnin(self, input, amount):
         return self.run_nexus('--log-level WARNING trees -d 1-{}'.format(amount), input)
 
-    def sample(self, input, seed=12345, detranslate=False):
-        return self.run_nexus(
-            'trees {} -n 1000 --random-seed {}'.format('-t' if detranslate else '', seed),
+    def sample(self,
+               input,
+               seed=12345,
+               detranslate=False,
+               as_nexus=False,
+               n=1000,
+               strip_annotation=False):
+        res = self.run_nexus(
+            'trees {} {} -n {} --random-seed {}'.format(
+                '-t' if detranslate else '',
+                '-c' if strip_annotation else '',
+                n,
+                seed),
             input)
+        return nexus.NexusReader.from_string(res) if as_nexus else res
 
     def init(self, args):
         self.add_schema(args)
@@ -156,7 +269,10 @@ class Dataset(cldfbench.Dataset):
                 self.raw_dir.joinpath('source.bib').read_text(encoding='utf8'))
 
     def add_schema(self, args):
-        args.writer.cldf.add_component('LanguageTable')
+        t = args.writer.cldf.add_component('LanguageTable')
+        t.common_props['dc:description'] = \
+             "The LanguageTable lists the taxa, i.e. the leafs of the phylogeny, mapped to " \
+             "languoids."
         args.writer.cldf.add_table(
             'trees.csv',
             {
@@ -229,18 +345,61 @@ class Dataset(cldfbench.Dataset):
             Source=[source] if isinstance(source, str) else source,
         ))
 
+    def add_tree_from_nexus(
+            self, args, in_nex, out_nex, tid, type_=None, source=None, detranslate=False):
+        if not isinstance(in_nex, nexus.NexusReader):
+            in_nex = nexus.NexusReader(in_nex)
+        if detranslate:
+            in_nex.trees.detranslate()
+        self.add_tree(args, in_nex.trees.trees[0], out_nex, tid, type_=type_, source=source)
+
+    def add_tree_from_newick(self, args, nwk, nex, tid, type_=None, source=None):
+        if isinstance(nwk, pathlib.Path):
+            nwk = nwk.read_text(encoding='utf8')
+        self.add_tree(
+            args, NexusTree('tree = {}'.format(nwk)), nex, tid, type_=type_, source=source)
+
     def add_data(self, args, input):
         if isinstance(input, BeastFile):
-            nex = input.to_nexus()
+            nex, chars = input.nexus_and_characters()
         else:
             nex = input if isinstance(input, (nexus.NexusReader, nexus.NexusWriter)) \
                 else nexus.NexusReader(input)
+            chars = sorted(nex.data.charlabels.items())
+        if not chars:
+            chars = [
+                (i + 1, 'Site {}'.format(i + 1))
+                for i, _ in enumerate(list(nex.data.matrix.values())[0])]
+
+        if chars[0][0] == 0:
+            # A zero-based index. Switch to 1-based:
+            chars = [(k + 1, v) for k, v in chars]
+
+        md = {int(row.pop('Site')): row for row in self.characters}
+        assert all(len(chars) == len(d) for d in nex.data.matrix.values())
+        t = args.writer.cldf.add_component(
+            'ParameterTable',
+            {
+                'name': 'Nexus_File',
+                'dc:description':
+                    'The data for this parameter is stored at 1-based index {ID} '
+                    'of the sequences in the DATA block of the Nexus file specified here. '
+                    '(See https://en.wikipedia.org/wiki/Nexus_file)',
+                'propertyUrl': 'http://purl.org/dc/terms/relation',
+            },
+        )
+        t.common_props['dc:description'] = \
+            "The ParameterTable lists characters (a.k.a. sites), i.e. the (often binary) variables"\
+            " used as data basis to compute the phylogeny from."
+        if md:
+            add_columns(args, 'ParameterTable', list(md.values())[0], exclude=['Label'])
+        args.writer.cldf['ParameterTable', 'ID'].common_props['dc:description'] = \
+            "Sequence index of the site in the corresponding Nexus file."
+        for site, label in chars:
+            d = dict(ID=site, Name=label, Nexus_File='data.nex')
+            add_obj(args, 'ParameterTable', d, md.get(site, {}), rename=dict(Label='Name'))
         assert all(t in self._lids for t in nex.data.taxa)
         assert all(t in self._lids for t in nex.data.matrix)
-        #
-        # FIXME: more validation! E.g. whether number of charstatelabels matches number of sites
-        # in matrix.
-        #
         nex.write_to_file(self.cldf_dir / 'data.nex')
         #
         # FIXME: handle the case when there already is a "dc:hasPart" property!
@@ -257,18 +416,30 @@ class Dataset(cldfbench.Dataset):
         # FIXME: add metadata from Glottolog, put in dplace-tree-specific Dataset base class.
         # FIXME: log warnings if taxa are mapped to bookkeeping languoids!
         #
-        for row in self.etc_dir.read_csv('taxa.csv', dicts=True):
+        for i, row in enumerate(self.taxa):
+            if i == 0:
+                add_columns(
+                    args,
+                    'LanguageTable',
+                    row,
+                    exclude=['taxon', 'glottocode', 'soc_ids', 'xd_ids'])
+                args.writer.cldf.add_columns('LanguageTable', 'Glottolog_Name')
             self._lids.add(row['taxon'])
             glang = None
             if row['glottocode']:
-                glang = glangs[row['glottocode']]
-            args.writer.objects['LanguageTable'].append(dict(
+                try:
+                    glang = glangs[row['glottocode']]
+                except KeyError:
+                    args.log.error('Invalid glottocode in taxa.csv: {}'.format(row['glottocode']))
+            d = dict(
                 ID=row['taxon'],
                 Name=row['taxon'],
                 Glottocode=row['glottocode'] or None,
+                Glottolog_Name=glang.name if glang else None,
                 Latitude=glang.latitude if glang else None,
                 Longitude=glang.longitude if glang else None,
-            ))
+            )
+            add_obj(args, 'LanguageTable', d, row)
 
 
 def beast_to_nexus(filename, valid_states="01?"):
@@ -295,21 +466,21 @@ def beast_to_nexus(filename, valid_states="01?"):
                 assert state in valid_states, 'Invalid State %s' % state
                 nex.add(seq.find('taxon').get('idref'), i, state)
 
-    #
-    # Now serialze and hack in the charstatelabel block!
-    #
-    new = []
-    for line in nex.write().split('\n'):
-        if line.strip().lower() == 'matrix':
-            # here's where we should put the charstatelabels!
-            chars = sorted(list(beast2chars(xml)))
-            if chars:
-                new.append('\tcharstatelabels')
-                for i, (n, label) in enumerate(chars, start=1):
-                    new.append('\t\t{} {}{}'.format(n, label, ',' if i != len(chars) else ''))
-                new.append('\t;')
-        new.append(line)
-    return nexus.NexusReader.from_string('\n'.join(new))
+    ##
+    ## Now serialze and hack in the charstatelabel block!
+    ##
+    # new = []
+    # for line in nex.write().split('\n'):
+    #    if line.strip().lower() == 'matrix':
+    #        # here's where we should put the charstatelabels!
+    #        chars = sorted(list(beast2chars(xml)))
+    #        if chars:
+    #            new.append('\tcharstatelabels')
+    #            for i, (n, label) in enumerate(chars, start=1):
+    #                new.append('\t\t{} {}{}'.format(n, label, ',' if i != len(chars) else ''))
+    #            new.append('\t;')
+    #    new.append(line)
+    return nexus.NexusReader.from_string(nex.write()), sorted(list(beast2chars(xml)))
 
 
 def beast2chars(xml):

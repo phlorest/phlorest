@@ -28,8 +28,10 @@ setup(
         'cldfbench>=1.5.0',
         'attrs',
         'python-nexus',
+        'ete3',
     ],
     extras_require={
+        'qt': ['PyQt5'],
         'dev': ['flake8', 'wheel', 'twine'],
         'test': [
             'pyglottolog',
