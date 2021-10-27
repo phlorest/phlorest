@@ -22,6 +22,7 @@ try:
 except ImportError:
     ete3 = None
 
+__version__ = '0.1.0'
 __all__ = ['Dataset', 'Metadata', 'NexusFile', 'BeastFile', 'render_summary_tree']
 SCALING = [
     'none',  # no branch lengths

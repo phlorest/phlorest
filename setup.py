@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='phlorest',
-    version='0.1.0.dev0',
+    version='0.1.0',
     author='Simon Greenhill and Robert Forkel',
     author_email='dlce.rdm@eva.mpg.de',
     description='A cldfbench plugin to curate language phylogenies',
