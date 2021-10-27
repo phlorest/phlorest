@@ -28,10 +28,9 @@ setup(
         'cldfbench>=1.5.0',
         'attrs',
         'python-nexus',
-        'ete3',
     ],
     extras_require={
-        'qt': ['PyQt5'],
+        'ete3': ['numpy', 'PyQt5', 'ete3'],
         'dev': ['flake8', 'wheel', 'twine'],
         'test': [
             'pyglottolog',
@@ -39,6 +38,9 @@ setup(
             'pytest-mock',
             'pytest-cov',
             'coverage>=4.2',
+            'numpy',
+            'PyQt5',
+            'ete3',
         ],
     },
     classifiers=[

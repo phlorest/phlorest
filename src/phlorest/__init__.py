@@ -1,8 +1,10 @@
+import re
 import copy
 import gzip
 import shlex
 import shutil
 import pathlib
+import zipfile
 import tempfile
 import subprocess
 import xml.etree.cElementTree as ElementTree
@@ -11,9 +13,14 @@ import attr
 import cldfbench
 import nexus
 import newick
-import ete3
+
 from pycldf.terms import TERMS
 from nexus.handlers.tree import Tree as NexusTree
+
+try:
+    import ete3
+except ImportError:
+    ete3 = None
 
 __all__ = ['Dataset', 'Metadata', 'NexusFile', 'BeastFile', 'render_summary_tree']
 SCALING = [
@@ -27,6 +34,8 @@ SCALING = [
 
 
 def render_summary_tree(cldf, output, w=183, units='mm'):
+    if ete3 is None:
+        raise ValueError('This feature requires ete3. Install with "pip install phlorest[ete3]"')
     gcodes = {r['ID']: (r['Glottocode'], r.get('Glottolog_Name'))
               for r in cldf['LanguageTable'] if r['Glottocode']}
 
@@ -132,11 +141,12 @@ class NexusFile:
 
 
 class BeastFile:
-    def __init__(self, path):
+    def __init__(self, path, text=None):
         self.path = path
+        self.text = text
 
     def nexus_and_characters(self):
-        return beast_to_nexus(self.path)
+        return beast_to_nexus(self.path or self.text)
 
 
 @attr.s
@@ -176,7 +186,10 @@ class Dataset(cldfbench.Dataset):
             text += '\n\n## Summary Tree\n\n![summary](./summary_tree.svg)'
             self.dir.joinpath('README.md').write_text(text, encoding='utf8')
 
-    def read_gzipped_text(self, p):
+    def read_gzipped_text(self, p, name=None):
+        if p.suffix == '.zip':
+            zip = zipfile.ZipFile(str(p))
+            return zip.read(name or zip.namelist()[0]).decode('utf8')
         with gzip.open(p) as fp:
             return fp.read().decode('utf8')
 
@@ -192,6 +205,19 @@ class Dataset(cldfbench.Dataset):
     @property
     def characters(self):
         return self._read_from_etc('characters.csv')
+
+    def read_nexus(self, p, remove_rate=False):
+        """
+        :param p:
+        :param remove_rate: Some trees have annotations before *and* after the colon, separating \
+        the branch length. The newick package can't handle these. So we can remove the simpler \
+        annotation after the ":".
+        :return:
+        """
+        text = p if isinstance(p, str) else p.read_text(encoding='utf8')
+        if remove_rate:
+            text = re.sub(r':\[&rate=[0-9]*\.?[0-9]*]', ':', text)
+        return nexus.NexusReader.from_string(text)
 
     def read_trees(self, p, detranslate=False):
         nex = nexus.NexusReader(p)
@@ -209,16 +235,28 @@ class Dataset(cldfbench.Dataset):
         return NexusFile(self.cldf_dir / 'posterior.trees')
 
     def run_treeannotator(self, cmd, input):
+        if shutil.which('treeannotator') is None:
+            raise ValueError('The treeannotator executable must be installed and in PATH')
         with tempfile.TemporaryDirectory() as d:
             d = pathlib.Path(d)
             in_ = d / 'in.nex'
-            in_.write_text(input, encoding='utf8')
+            if isinstance(input, str):
+                in_.write_text(input, encoding='utf8')
+            else:
+                shutil.copy(input, in_)
             out = d / 'out.nex'
             subprocess.check_call(
                 ['treeannotator'] + shlex.split(cmd) + [str(in_), str(out)],
                 stderr=subprocess.DEVNULL,
             )
             return nexus.NexusReader.from_string(out.read_text(encoding='utf8'))
+
+    def run_rscript(self, script, output_fname):
+        with tempfile.TemporaryDirectory() as d:
+            d = pathlib.Path(d)
+            d.joinpath('script.r').write_text(script, encoding='utf8')
+            subprocess.check_call(['Rscript', str(d / 'script.r')], cwd=d)
+            return d.joinpath(output_fname).read_text(encoding='utf8')
 
     def run_nexus(self, cmd, *inputs):
         with tempfile.TemporaryDirectory() as d:
@@ -271,8 +309,8 @@ class Dataset(cldfbench.Dataset):
     def add_schema(self, args):
         t = args.writer.cldf.add_component('LanguageTable')
         t.common_props['dc:description'] = \
-             "The LanguageTable lists the taxa, i.e. the leafs of the phylogeny, mapped to " \
-             "languoids."
+            "The LanguageTable lists the taxa, i.e. the leafs of the phylogeny, mapped to " \
+            "languoids."
         args.writer.cldf.add_table(
             'trees.csv',
             {
@@ -376,7 +414,7 @@ class Dataset(cldfbench.Dataset):
             chars = [(k + 1, v) for k, v in chars]
 
         md = {int(row.pop('Site')): row for row in self.characters}
-        assert all(len(chars) == len(d) for d in nex.data.matrix.values())
+        assert all(len(chars) == len(d) for d in nex.data.matrix.values()), str(len(chars))
         t = args.writer.cldf.add_component(
             'ParameterTable',
             {
@@ -444,7 +482,10 @@ class Dataset(cldfbench.Dataset):
 
 def beast_to_nexus(filename, valid_states="01?"):
     nex = nexus.NexusWriter()
-    xml = ElementTree.parse(str(filename))
+    if isinstance(filename, str):
+        xml = ElementTree.fromstring(filename)
+    else:
+        xml = ElementTree.parse(str(filename))
     #
     # <sequence>
     # <taxon idref=""/>
@@ -466,21 +507,11 @@ def beast_to_nexus(filename, valid_states="01?"):
                 assert state in valid_states, 'Invalid State %s' % state
                 nex.add(seq.find('taxon').get('idref'), i, state)
 
-    ##
-    ## Now serialze and hack in the charstatelabel block!
-    ##
-    # new = []
-    # for line in nex.write().split('\n'):
-    #    if line.strip().lower() == 'matrix':
-    #        # here's where we should put the charstatelabels!
-    #        chars = sorted(list(beast2chars(xml)))
-    #        if chars:
-    #            new.append('\tcharstatelabels')
-    #            for i, (n, label) in enumerate(chars, start=1):
-    #                new.append('\t\t{} {}{}'.format(n, label, ',' if i != len(chars) else ''))
-    #            new.append('\t;')
-    #    new.append(line)
-    return nexus.NexusReader.from_string(nex.write()), sorted(list(beast2chars(xml)))
+    try:
+        chars = sorted(list(beast2chars(xml)))
+    except (ValueError, KeyError):
+        chars = None
+    return nexus.NexusReader.from_string(nex.write()), chars
 
 
 def beast2chars(xml):
@@ -505,7 +536,10 @@ def beast2chars(xml):
     def get_by_id(data_id):
         if data_id.startswith("@"):
             data_id = data_id.lstrip("@")
-        return xml.find(".//alignment[@id='%s']" % data_id)
+        res = xml.find(".//alignment[@id='%s']" % data_id)
+        if res is None:
+            raise ValueError(data_id)
+        return res
 
     for treelh in xml.findall(".//distribution[@spec='TreeLikelihood']"):
         if treelh.get('data'):
