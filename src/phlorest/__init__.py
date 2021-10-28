@@ -155,7 +155,7 @@ class Metadata(cldfbench.Metadata):
     name = attr.ib(default=None)
     author = attr.ib(default=None)
     year = attr.ib(default=None)
-    scaling = attr.ib(default=None, validator=attr.validators.in_(SCALING))
+    scaling = attr.ib(default='none', validator=attr.validators.in_(SCALING))
     analysis = attr.ib(default=None)
     family = attr.ib(default=None)
     cldf = attr.ib(default=None)

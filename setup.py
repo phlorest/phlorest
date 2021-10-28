@@ -20,6 +20,9 @@ setup(
         'cldfbench.commands': [
             'phlorest=phlorest.commands',
         ],
+         'cldfbench.scaffold': [
+            'phlorest=phlorest.scaffold:PhlorestTemplate',
+        ],
     },
     platforms='any',
     python_requires='>=3.6',
