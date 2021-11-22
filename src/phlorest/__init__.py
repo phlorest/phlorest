@@ -34,7 +34,7 @@ SCALING = [
 ]
 
 
-def render_summary_tree(cldf, output, w=183, units='mm'):
+def render_summary_tree(cldf, output, w=183, units='mm', format=0):
     if ete3 is None:
         raise ValueError('This feature requires ete3. Install with "pip install phlorest[ete3]"')
     gcodes = {r['ID']: (r['Glottocode'], r.get('Glottolog_Name'))
@@ -49,7 +49,7 @@ def render_summary_tree(cldf, output, w=183, units='mm'):
             tree = nexus.NexusReader(cldf.directory / row['Nexus_File']).trees.trees[0]
             nwk = newick.loads(tree.newick_string, strip_comments=True)[0]
             nwk.visit(rename)
-            tree = ete3.Tree(nwk.newick + ';')
+            tree = ete3.Tree(nwk.newick + ';', format=format)
             tree.render(str(output), w=w, units=units)
             svg = ElementTree.fromstring(output.read_text(encoding='utf8'))
             for t in svg.findall('.//{http://www.w3.org/2000/svg}text'):
@@ -165,6 +165,7 @@ class Metadata(cldfbench.Metadata):
 
 class Dataset(cldfbench.Dataset):
     metadata_cls = Metadata
+    __ete3_newick_format__ = 0
 
     def __init__(self):
         cldfbench.Dataset.__init__(self)
@@ -178,7 +179,10 @@ class Dataset(cldfbench.Dataset):
 
     def _cmd_makecldf(self, args):
         cldfbench.Dataset._cmd_makecldf(self, args)
-        render_summary_tree(self.cldf_reader(), self.dir / 'summary_tree.svg')
+        render_summary_tree(
+            self.cldf_reader(), 
+            self.dir / 'summary_tree.svg',
+            format=self.__ete3_newick_format__)
 
     def _cmd_readme(self, args):
         cldfbench.Dataset._cmd_readme(self, args)
