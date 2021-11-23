@@ -8,6 +8,7 @@ import zipfile
 import tempfile
 import subprocess
 import xml.etree.cElementTree as ElementTree
+import urllib.parse
 
 import attr
 import cldfbench
@@ -77,8 +78,9 @@ def add_columns(args, table, obj, exclude=None):
     exclude = exclude or []
     new = []
     for k in obj.keys():
+        lname = 'concepticonReference' if k == 'Concepticon_ID' else k
         if k not in exclude:
-            col = TERMS[k].to_column() if k in TERMS else k
+            col = TERMS[lname].to_column() if lname in TERMS else k
             if getattr(col, 'name', k) in existing:
                 args.log.error('Duplicate column name {} for {}'.format(k, table))
                 continue
@@ -152,15 +154,40 @@ class BeastFile:
 
 @attr.s
 class Metadata(cldfbench.Metadata):
-    name = attr.ib(default=None)
-    author = attr.ib(default=None)
+    name = attr.ib(default=None)  # dc:title
+    author = attr.ib(default=None)  # dc:creator
     year = attr.ib(default=None)
     scaling = attr.ib(default='none', validator=attr.validators.in_(SCALING))
     analysis = attr.ib(default=None)
-    family = attr.ib(default=None)
-    cldf = attr.ib(default=None)
-    data = attr.ib(default=None)
+    family = attr.ib(default=None)  # glottocode
+    cldf = attr.ib(
+        default=None,
+        converter=lambda s: 'https://{}'.format(s) if s and s.startswith('github.com') else s)
+    data = attr.ib(default=None)  # derived from, if cldf == None
     missing = attr.ib(default=attr.Factory(dict))
+
+    def __attrs_post_init__(self):
+        if self.url:
+            u = urllib.parse.urlparse(self.url)
+            if u.netloc == 'dx.doi.org':
+                self.url = urllib.parse.urlunsplit(('https', 'doi.org', u.path, '', ''))
+
+    def common_props(self):
+        res = cldfbench.Metadata.common_props(self)
+        if self.name:
+            res['dc:title'] = self.name
+        if self.author:
+            res['dc:creator'] = self.author
+        res['dc:subject'] = {
+            k: getattr(self, k) for k in ['scaling', 'analysis', 'family'] if getattr(self, k)}
+        data = self.cldf or self.data
+        if data:
+            res['prov:wasDerivedFrom'] = [{
+                "rdf:about": data,
+                "rdf:type": "prov:Entity",
+                "dc:description": "Dataset underlying the analysis"
+            }]
+        return res
 
 
 class Dataset(cldfbench.Dataset):
