@@ -2,6 +2,7 @@ import re
 import copy
 import gzip
 import shlex
+import random
 import shutil
 import pathlib
 import zipfile
@@ -17,6 +18,7 @@ import newick
 
 from pycldf.terms import TERMS
 from nexus.handlers.tree import Tree as NexusTree
+from nexus.tools import delete_trees, sample_trees, strip_comments_in_trees
 
 try:
     import ete3
@@ -40,6 +42,16 @@ def render_summary_tree(cldf, output, w=183, units='mm', format=0):
         raise ValueError('This feature requires ete3. Install with "pip install phlorest[ete3]"')
     gcodes = {r['ID']: (r['Glottocode'], r.get('Glottolog_Name'))
               for r in cldf['LanguageTable'] if r['Glottocode']}
+
+    #from ete3 import Tree, TreeStyle
+    #t = Tree()
+    #t.populate(10, random_dist=True)
+    #ts = TreeStyle()
+    #ts.show_leaf_name = True
+    #ts.show_branch_length = True
+    #ts.show_branch_support = True
+    #t.show(tree_style=ts)
+
 
     def rename(n):
         if n.name in gcodes:
@@ -290,30 +302,8 @@ class Dataset(cldfbench.Dataset):
             subprocess.check_call(['Rscript', str(d / 'script.r')], cwd=d)
             return d.joinpath(output_fname).read_text(encoding='utf8')
 
-    def run_nexus(self, cmd, *inputs):
-        with tempfile.TemporaryDirectory() as d:
-            d = pathlib.Path(d)
-            ips = []
-            for i, input in enumerate(inputs, start=1):
-                ip = d / 'in{}.nex'.format(i)
-                if isinstance(input, str):
-                    ip.write_text(input, encoding='utf8')
-                else:
-                    shutil.copy(input, ip)
-                ips.append(str(ip))
-
-            cmd = shlex.split(cmd)
-            if cmd[0] != 'nexus':
-                cmd = ['nexus'] + cmd
-            fcmd = cmd + ips + ['-o', str(d / 'out.nex')]
-            try:
-                subprocess.check_call(fcmd)
-            except:  # noqa: E722
-                raise ValueError('Running "{}" failed'.format(' '.join(cmd)))
-            return d.joinpath('out.nex').read_text(encoding='utf8')
-
     def remove_burnin(self, input, amount):
-        return self.run_nexus('--log-level WARNING trees -d 1-{}'.format(amount), input)
+        return delete_trees(input, list(range(amount + 1))).write()
 
     def sample(self,
                input,
@@ -322,14 +312,13 @@ class Dataset(cldfbench.Dataset):
                as_nexus=False,
                n=1000,
                strip_annotation=False):
-        res = self.run_nexus(
-            'trees {} {} -n {} --random-seed {}'.format(
-                '-t' if detranslate else '',
-                '-c' if strip_annotation else '',
-                n,
-                seed),
-            input)
-        return nexus.NexusReader.from_string(res) if as_nexus else res
+        random.seed(seed)
+        res = sample_trees(input, n)
+        if strip_annotation:
+            res = strip_comments_in_trees(res)
+        if detranslate:
+            res.trees.detranslate()
+        return res if as_nexus else res.write()
 
     def init(self, args):
         self.add_schema(args)

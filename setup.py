@@ -30,7 +30,7 @@ setup(
         'clldutils',
         'cldfbench>=1.5.0',
         'attrs',
-        'python-nexus',
+        'python-nexus>=2.4',
     ],
     extras_require={
         'ete3': ['numpy', 'PyQt5', 'ete3'],
