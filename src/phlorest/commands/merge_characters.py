@@ -8,13 +8,13 @@ from clldutils.clilib import PathType
 from cldfbench.cli_util import add_catalog_spec, add_dataset_spec, get_dataset
 
 
-def register(parser):
+def register(parser):  # pragma: no cover
     add_catalog_spec(parser, 'concepticon')
     add_dataset_spec(parser)
     parser.add_argument('mapping', type=PathType(type='file'))
 
 
-def run(args):
+def run(args):  # pragma: no cover
     ds = get_dataset(args)
 
     conceptsets = {cs.gloss: cs for cs in args.concepticon.api.conceptsets.values()}

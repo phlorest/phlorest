@@ -10,8 +10,8 @@ from phlorest import *
 
 
 @pytest.fixture
-def dataset(tmp_path):
-    shutil.copytree(pathlib.Path(__file__).parent / 'repos', tmp_path / 'repos')
+def dataset(tmp_path, repos):
+    shutil.copytree(repos, tmp_path / 'repos')
 
     class DS(Dataset):
         dir = tmp_path / 'repos'
@@ -40,4 +40,3 @@ def test_Dataset(dataset, cldfwriter, mocker, glottolog, tmp_path):
     dataset.add_tree(
         args, Tree('Tree = [&R] (abcd1235,abcd1235)abcd1234;'), NexusFile(tmp_path / 'nex'), 'x')
     dataset.add_data(args, BeastFile(dataset.raw_dir / 'beast.xml'))
-    dataset.run_nexus('trees -c -t', dataset.raw_dir / 'nexus.trees')

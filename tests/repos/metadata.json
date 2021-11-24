@@ -1,3 +1,6 @@
 {
-  "scaling": "none"
+  "scaling": "none",
+  "author": "the author",
+  "name": "The name",
+  "year": 2021
 }
