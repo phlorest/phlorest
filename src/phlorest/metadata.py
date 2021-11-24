@@ -14,6 +14,13 @@ SCALING = [
     'centuries',  # centuries
     'millennia',  # millennia
 ]
+ANALYSES = [
+    'bayesian',
+    'parsimony',
+    'likelihood',
+    'network',
+    'other',
+]
 RESCALE_TO_YEARS = {
     'centuries': 100,
     'millennia': 1000,
@@ -26,7 +33,7 @@ class Metadata(cldfbench.Metadata):
     author = attr.ib(default=None)
     year = attr.ib(default=None)
     scaling = attr.ib(default='none', validator=attr.validators.in_(SCALING))
-    analysis = attr.ib(default=None)
+    analysis = attr.ib(default=None, validator=attr.validators.in_(ANALYSES))
     family = attr.ib(default=None)
     cldf = attr.ib(
         default=None,
