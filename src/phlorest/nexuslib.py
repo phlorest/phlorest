@@ -1,16 +1,27 @@
 import copy
+import typing
 import functools
 
+import newick
 import nexus
 from nexus.handlers.tree import Tree as NexusTree
 
 from .metadata import RESCALE_TO_YEARS
+
+__all__ = ['newick2nexus', 'NexusFile']
 
 
 def format_tree(tree: NexusTree, default_label='tree', newick=None, name=None):
     rooting = '' if tree.rooted is None else '[&{}] '.format('R' if tree.rooted else 'U')
     return 'tree {} = {}{}'.format(
         name or tree.name or default_label, rooting, newick or tree.newick_string)
+
+
+def newick2nexus(tree: typing.Union[str, newick.Node], name='tree') -> NexusTree:
+    tree = getattr(tree, 'newick', tree)
+    if not tree.endswith(';'):
+        tree += ';'
+    return NexusTree('tree {} = {}'.format(name, tree))
 
 
 class NexusFile:
@@ -47,7 +58,7 @@ class NexusFile:
                 except KeyError:
                     if node.is_leaf:
                         log.error('{} references undefined leaf {}'.format(tree.name, node.name))
-                    else:
+                    else:  # pragma: no cover
                         log.warning(
                             '{} references undefined inner node {}'.format(tree.name, node.name))
 
@@ -65,7 +76,8 @@ class NexusFile:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        nex = nexus.NexusWriter()
-        for i, tree in enumerate(self._trees, start=1):
-            nex.trees.append(format_tree(tree, default_label='tree{}'.format(i)))
-        nex.write_to_file(self.path)
+        if self._trees:
+            nex = nexus.NexusWriter()
+            for i, tree in enumerate(self._trees, start=1):
+                nex.trees.append(format_tree(tree, default_label='tree{}'.format(i)))
+            nex.write_to_file(self.path)

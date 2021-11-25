@@ -1,8 +1,13 @@
 import pytest
+import newick
 import nexus
 from nexus.handlers.tree import Tree
 
-from phlorest.nexuslib import NexusFile
+from phlorest.nexuslib import NexusFile, newick2nexus
+
+
+def test_newick2nexus():
+    assert newick2nexus(newick.loads('(A,B)C;')[0], name='X') == 'tree X = (A,B)C;'
 
 
 def test_NexusFile(tmp_path, mocker):

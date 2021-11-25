@@ -28,7 +28,7 @@ setup(
     python_requires='>=3.6',
     install_requires=[
         'clldutils',
-        'cldfbench>=1.5.0',
+        'cldfbench>=1.9.0',
         'attrs',
         'python-nexus>=2.4',
     ],
@@ -41,6 +41,7 @@ setup(
             'pytest-mock',
             'pytest-cov',
             'coverage>=4.2',
+            'newick',
             'numpy',
             'PyQt5',
             'ete3',

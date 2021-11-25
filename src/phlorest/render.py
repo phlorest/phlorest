@@ -78,6 +78,13 @@ def nexus_tree_from_row(cldf, row):
 def render_summary_tree(cldf, output, width=1000, units='px', ete3_format=0):
     for row in cldf['trees.csv']:
         if row['type'] == 'summary':
+            legend = "Summary tree"
+            if cldf.properties.get('dc:subject', {}).get('analysis'):
+                legend += ' of a {} analysis'.format(cldf.properties['dc:subject']['analysis'])
+            if cldf.properties.get('dc:subject', {}).get('family'):
+                legend += ' of the {} family'.format(cldf.properties['dc:subject']['family'])
+            if row['scaling'] != 'none':
+                legend += ' with {} as scale'.format(row['scaling'])
             render_tree(
                 nexus_tree_from_row(cldf, row),
                 output,
@@ -85,8 +92,7 @@ def render_summary_tree(cldf, output, width=1000, units='px', ete3_format=0):
                     r['ID']: (r['Glottocode'], r.get('Glottolog_Name'))
                     for r in cldf['LanguageTable'] if r['Glottocode']},
                 scaling=row['scaling'],
-                legend="Summary tree of a {0[analysis]} analysis of the {0[family]} family with "
-                       "{1} as scale".format(cldf.properties['dc:subject'], row['scaling']),
+                legend=legend,
                 width=width,
                 units=units,
                 ete3_format=ete3_format,
