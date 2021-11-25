@@ -2,6 +2,7 @@ import typing
 
 import cldfbench
 
+import tqdm
 import nexus
 from nexus.handlers.tree import Tree as NexusTree
 from pycldf.terms import TERMS
@@ -144,8 +145,11 @@ class CLDFWriter(cldfbench.CLDFWriter):
                       trees: typing.List[NexusTree],
                       metadata: Metadata,
                       log,
-                      source=None):
-        for i, tree in enumerate(trees, start=1):
+                      source=None,
+                      verbose=False):
+        for i, tree in (
+                tqdm.tqdm(enumerate(trees, start=1), total=len(trees))
+                if verbose else enumerate(trees, start=1)):
             self.add_tree(
                 tree,
                 self.posterior,
