@@ -6,6 +6,7 @@ def test_Metadata():
         url='http://dx.doi.org/a/b',
         name='the name',
         scaling='centuries',
+        analysis='other',
         data='data.nex',
         author='the author',
         year='2021')
