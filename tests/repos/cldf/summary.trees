@@ -1,0 +1,7 @@
+#NEXUS
+
+
+BEGIN TREES;
+    tree summary = [&R] (l1:234,l2:45):1234;
+END;
+

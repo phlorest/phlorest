@@ -1,7 +1,6 @@
 """
 Checks datasets for compliance
 """
-import sys
 from cldfbench.cli_util import add_dataset_spec, get_dataset
 
 # values in metadata.json that should be present and should not be empty
@@ -21,7 +20,7 @@ def run(args):
     except Exception as e:
         print("Error: unable to load %s - %s" % (args.dataset, e))
         return
-        
+
     # check metadata
     for mdkey in METAKEYS:
         if not getattr(d.metadata, mdkey, ''):
@@ -42,16 +41,17 @@ def run(args):
     # we don't have a nexus data file, and it's not flagged as missing
     if not (d.cldf_dir / 'data.nex').exists() and not d.metadata.missing.get('nexus'):
         print("Error: %s nexus data file missing" % d.id)
-        
+
     # do we have characters?
     if not d.characters and not d.metadata.missing.get('characters'):
         print("Error: %s characters.csv file missing" % d.id)
-    
+
     # check characters has the right columns
     for char in d.characters:
         if 'concepticonReference' in char:
-            print("Error: %s characters.csv uses `concepticonReference` rather than `Concepticon_ID`" % d.id)
+            print("Error: %s characters.csv uses `concepticonReference` rather than "
+                  "`Concepticon_ID`" % d.id)
             break
-    
+
     # is the cldf valid?
     d.cldf_reader().validate()

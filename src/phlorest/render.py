@@ -18,7 +18,7 @@ def render_tree(tree,
                 width: int = 1000,
                 units: str = 'px',
                 ete3_format: int = 0):
-    if ete3 is None:
+    if ete3 is None:  # pragma: no cover
         raise ValueError('This feature requires ete3. Install with "pip install phlorest[ete3]"')
 
     gcodes = gcodes or {}

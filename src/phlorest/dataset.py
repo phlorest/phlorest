@@ -22,6 +22,33 @@ from .nexuslib import NexusFile
 from .beast import BeastFile
 
 
+class CLDFWriter(cldfbench.CLDFWriter):
+    def add_columns(self, table, obj, exclude=None, log=None):
+        existing = [c.name for c in self.cldf[table].tableSchema.columns]
+        exclude = exclude or []
+        new = []
+        for k in obj.keys():
+            lname = 'concepticonReference' if k == 'Concepticon_ID' else k
+            if k not in exclude:
+                col = TERMS[lname].to_column() if lname in TERMS else k
+                if getattr(col, 'name', k) in existing:
+                    if log:
+                        log.error('Duplicate column name {} for {}'.format(k, table))
+                    continue
+                new.append(col)
+
+        self.cldf.add_columns(table, *new)
+
+    def add_obj(self, table, d, row, rename=None):
+        rename = rename or {}
+        for k, v in (row or {}).items():
+            k = rename.get(k, k)
+            if k in TERMS:
+                k = TERMS[k].to_column().name
+            d[k] = v
+        self.objects[table].append(d)
+
+
 class Dataset(cldfbench.Dataset):
     metadata_cls = Metadata
     __ete3_newick_format__ = 0
@@ -31,7 +58,7 @@ class Dataset(cldfbench.Dataset):
         self._lids = set()
 
     def cldf_specs(self):  # A dataset must declare all CLDF sets it creates.
-        return super().cldf_specs()
+        return cldfbench.CLDFSpec(dir=self.cldf_dir, writer_cls=CLDFWriter)
 
     def cmd_download(self, args):
         pass
@@ -272,12 +299,13 @@ class Dataset(cldfbench.Dataset):
             "The ParameterTable lists characters (a.k.a. sites), i.e. the (often binary) " \
             "variables used as data basis to compute the phylogeny from."
         if md:
-            add_columns(args, 'ParameterTable', list(md.values())[0], exclude=['Label'])
+            args.writer.add_columns(
+                'ParameterTable', list(md.values())[0], exclude=['Label'], log=args.log)
         args.writer.cldf['ParameterTable', 'ID'].common_props['dc:description'] = \
             "Sequence index of the site in the corresponding Nexus file."
         for site, label in chars:
             d = dict(ID=site, Name=label, Nexus_File='data.nex')
-            add_obj(args, 'ParameterTable', d, md.get(site, {}), rename=dict(Label='Name'))
+            args.writer.add_obj('ParameterTable', d, md.get(site, {}), rename=dict(Label='Name'))
         assert all(t in self._lids for t in nex.data.taxa)
         assert all(t in self._lids for t in nex.data.matrix)
         nex.write_to_file(self.cldf_dir / 'data.nex')
@@ -298,11 +326,11 @@ class Dataset(cldfbench.Dataset):
         #
         for i, row in enumerate(self.taxa):
             if i == 0:
-                add_columns(
-                    args,
+                args.writer.add_columns(
                     'LanguageTable',
                     row,
-                    exclude=['taxon', 'glottocode', 'soc_ids', 'xd_ids'])
+                    exclude=['taxon', 'glottocode', 'soc_ids', 'xd_ids'],
+                    log=args.log)
                 args.writer.cldf.add_columns('LanguageTable', 'Glottolog_Name')
             self._lids.add(row['taxon'])
             glang = None
@@ -319,30 +347,4 @@ class Dataset(cldfbench.Dataset):
                 Latitude=glang.latitude if glang else None,
                 Longitude=glang.longitude if glang else None,
             )
-            add_obj(args, 'LanguageTable', d, row)
-
-
-def add_columns(args, table, obj, exclude=None):
-    existing = [c.name for c in args.writer.cldf[table].tableSchema.columns]
-    exclude = exclude or []
-    new = []
-    for k in obj.keys():
-        lname = 'concepticonReference' if k == 'Concepticon_ID' else k
-        if k not in exclude:
-            col = TERMS[lname].to_column() if lname in TERMS else k
-            if getattr(col, 'name', k) in existing:
-                args.log.error('Duplicate column name {} for {}'.format(k, table))
-                continue
-            new.append(col)
-
-    args.writer.cldf.add_columns(table, *new)
-
-
-def add_obj(args, table, d, row, rename=None):
-    rename = rename or {}
-    for k, v in (row or {}).items():
-        k = rename.get(k, k)
-        if k in TERMS:
-            k = TERMS[k].to_column().name
-        d[k] = v
-    args.writer.objects[table].append(d)
+            args.writer.add_obj('LanguageTable', d, row)
