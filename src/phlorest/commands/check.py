@@ -1,7 +1,6 @@
 """
 Checks datasets for compliance
 """
-import sys
 from cldfbench.cli_util import add_dataset_spec, get_dataset
 
 # values in metadata.json that should be present and should not be empty
