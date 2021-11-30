@@ -10,17 +10,18 @@ METAKEYS = [
 ]
 
 
-def register(parser):
+def register(parser):  # pragma: no cover
     add_dataset_spec(parser)
 
 
-def run(args):
-    try:
-        d = get_dataset(args)
-    except Exception as e:
-        args.log.error("Unable to load %s - %s" % (args.dataset, e))
-        return
-        
+def run(args, d=None):
+    if d is None:  # pragma: no cover
+        try:
+            d = get_dataset(args)
+        except Exception as e:
+            args.log.error("Unable to load %s - %s" % (args.dataset, e))
+            return
+
     # check metadata
     for mdkey in METAKEYS:
         if not getattr(d.metadata, mdkey, ''):

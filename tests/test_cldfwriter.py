@@ -17,4 +17,8 @@ def test_CLDFWriter(repos, tmp_path, mocker, nexus_tree, dataset, glottolog):
             nexus_tree,
             Metadata(name='n', author='a', year=2021),
             mocker.Mock())
+        writer.add_posterior(
+            [nexus_tree],
+            Metadata(name='n', author='a', year=2021),
+            mocker.Mock())
         writer.add_data(BeastFile(repos / 'raw' / 'beast.xml'), [], mocker.Mock())

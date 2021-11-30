@@ -112,12 +112,6 @@ class CLDFWriter(cldfbench.CLDFWriter):
                  type_,
                  source=None):
         nex.append(tree, tid, self._lids, metadata.scaling, log)
-        if type_ is None:
-            if nex.path.stem == 'summary':
-                type_ = 'summary'
-            elif nex.path.stem == 'posterior':
-                type_ = 'sample'
-
         if source is None:
             bibkeys = list(self.cldf.sources.keys())
             if len(bibkeys) == 1:

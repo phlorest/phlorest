@@ -56,8 +56,6 @@ class Metadata(cldfbench.Metadata):
         for k in ['family', 'analysis', 'scaling']:
             v = getattr(self, k)
             if v:
-                if k == 'scaling' and v in RESCALE_TO_YEARS:
-                    v = 'years (rescaled from {})'.format(v)
                 res['dc:subject'][k] = v
         data = self.cldf or self.data
         if data:

@@ -85,6 +85,9 @@ def render_summary_tree(cldf, output, width=1000, units='px', ete3_format=0):
                 legend += ' of the {} family'.format(cldf.properties['dc:subject']['family'])
             if row['scaling'] != 'none':
                 legend += ' with {} as scale'.format(row['scaling'])
+            #
+            # Rescale to years?
+            #
             render_tree(
                 nexus_tree_from_row(cldf, row),
                 output,

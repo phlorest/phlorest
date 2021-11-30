@@ -5,16 +5,11 @@ import functools
 import newick
 import nexus
 from nexus.handlers.tree import Tree as NexusTree
+from nexus.tools import visit_tree_nodes
 
 from .metadata import RESCALE_TO_YEARS
 
 __all__ = ['newick2nexus', 'NexusFile']
-
-
-def format_tree(tree: NexusTree, default_label='tree', newick=None, name=None):
-    rooting = '' if tree.rooted is None else '[&{}] '.format('R' if tree.rooted else 'U')
-    return 'tree {} = {}{}'.format(
-        name or tree.name or default_label, rooting, newick or tree.newick_string)
 
 
 def newick2nexus(tree: typing.Union[str, newick.Node], name='tree') -> NexusTree:
@@ -24,6 +19,26 @@ def newick2nexus(tree: typing.Union[str, newick.Node], name='tree') -> NexusTree
     return NexusTree('tree {} = {}'.format(name, tree))
 
 
+def rescale_to_years(nex, orig_scaling, log=None):
+    """
+    Rescales trees in a nexus file to years (if possible) in the fashion of other `nexus.tools`
+    tree manipulation functions.
+
+    :param nex:
+    :param orig_scaling:
+    :param log:
+    :return: The mutated `NexusReader` object.
+    """
+    def _rescaler(factor, n):
+        n._length_formatter = lambda l: '{:.0f}'.format(l) if l else None
+        if n._length:
+            n.length = n.length * factor
+
+    if orig_scaling in RESCALE_TO_YEARS:
+        return visit_tree_nodes(nex, functools.partial(_rescaler, RESCALE_TO_YEARS[orig_scaling]))
+    raise ValueError('Cannot rescale {} to years.'.format(orig_scaling))
+
+
 class NexusFile:
     def __init__(self, path):
         self.path = path
@@ -31,22 +46,11 @@ class NexusFile:
         self.scaling = None
 
     def append(self, tree: NexusTree, tid, lids, scaling, log):
-        def _rescaler(factor, n):
-            n._length_formatter = lambda l: '{:.0f}'.format(l) if l else None
-            if n._length:
-                n.length = n.length * factor
-
-        rescale = lambda s: s  # noqa: E731
-        if scaling in RESCALE_TO_YEARS:
-            rescale = functools.partial(_rescaler, RESCALE_TO_YEARS[scaling])
-            scaling = 'years'
-
         with_lids = bool(lids)
         if with_lids:
             lids = copy.copy(lids)
         ntree = tree.newick_tree
         for node in ntree.walk():
-            rescale(node)
             if node.name == 'root':
                 continue
             if node.is_leaf:
@@ -70,7 +74,7 @@ class NexusFile:
                 raise ValueError('All trees in a NexusFile must have the same scaling!')
         else:
             self.scaling = scaling
-        self._trees.append(NexusTree(format_tree(tree, newick=ntree.newick + ';', name=tid)))
+        self._trees.append(NexusTree.from_newick(ntree, name=tid or tree.name, rooted=tree.rooted))
 
     def __enter__(self):
         return self
@@ -79,5 +83,6 @@ class NexusFile:
         if self._trees:
             nex = nexus.NexusWriter()
             for i, tree in enumerate(self._trees, start=1):
-                nex.trees.append(format_tree(tree, default_label='tree{}'.format(i)))
+                nex.trees.append(NexusTree.from_newick(
+                    tree.newick_string, name=tree.name or 'tree{}'.format(i), rooted=tree.rooted))
             nex.write_to_file(self.path)

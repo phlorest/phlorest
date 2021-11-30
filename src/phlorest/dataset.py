@@ -12,6 +12,7 @@ from cldfbench.datadir import DataDir
 import nexus
 from nexus.tools import delete_trees, sample_trees, strip_comments_in_trees
 from pyglottolog.languoids import Glottocode
+from clldutils.path import TemporaryDirectory
 
 from .metadata import Metadata
 from .render import render_summary_tree
@@ -107,8 +108,7 @@ class Dataset(cldfbench.Dataset):
     def run_treeannotator(self, cmd, input):
         if shutil.which('treeannotator') is None:
             raise ValueError('The treeannotator executable must be installed and in PATH')
-        with tempfile.TemporaryDirectory() as d:
-            d = pathlib.Path(d)
+        with TemporaryDirectory() as d:
             in_ = d / 'in.nex'
             if isinstance(input, str):
                 in_.write_text(input, encoding='utf8')
@@ -122,14 +122,14 @@ class Dataset(cldfbench.Dataset):
             return nexus.NexusReader.from_string(out.read_text(encoding='utf8'))
 
     def run_rscript(self, script, output_fname):
-        with tempfile.TemporaryDirectory() as d:
-            d = pathlib.Path(d)
+        with TemporaryDirectory() as d:
             d.joinpath('script.r').write_text(script, encoding='utf8')
             subprocess.check_call(['Rscript', str(d / 'script.r')], cwd=d)
             return d.joinpath(output_fname).read_text(encoding='utf8')
 
-    def remove_burnin(self, input, amount):
-        return delete_trees(input, list(range(amount + 1))).write()
+    def remove_burnin(self, input, amount, as_nexus=False):
+        res = delete_trees(input, list(range(amount + 1)))
+        return res if as_nexus else res.write()
 
     def sample(self,
                input,
