@@ -4,7 +4,6 @@ import random
 import shutil
 import typing
 import pathlib
-import tempfile
 import subprocess
 
 import cldfbench

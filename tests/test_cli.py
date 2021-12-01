@@ -1,7 +1,7 @@
 import logging
 import argparse
 
-from phlorest.commands import check
+from phlorest.commands import check, merge_characters, plot
 
 
 def test_check(dataset, caplog):

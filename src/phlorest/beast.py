@@ -43,19 +43,12 @@ def beast_to_nexus(filename, valid_states="01?"):
 
     try:
         chars = sorted(list(beast2chars(xml)))
-    except (ValueError, KeyError):
+    except (ValueError, KeyError):  # pragma: no cover
         chars = None
     return nexus.NexusReader.from_string(nex.write()), chars
 
 
 def beast2chars(xml):
-    def find_filter(node):  # note recursive
-        for child in node:
-            find_filter(child)
-            (p, x, y) = get_partition(node)
-            if p and x and y:
-                return (p, x, y)
-
     def get_partition(p):
         x, y = [int(_) for _ in p.get('filter').split("-")]
         return (p.get('id'), x, y)
@@ -71,7 +64,7 @@ def beast2chars(xml):
         if data_id.startswith("@"):
             data_id = data_id.lstrip("@")
         res = xml.find(".//alignment[@id='%s']" % data_id)
-        if res is None:
+        if res is None:  # pragma: no cover
             raise ValueError(data_id)
         return res
 
@@ -83,8 +76,5 @@ def beast2chars(xml):
         else:
             data = treelh.find('./data')
             ascertained = data.get('ascertained') == 'true'
-            if data.get('data'):
-                datadata = get_by_id(data.get('data'))
-            else:
-                datadata = treelh.find('./data/data')
-            yield from printchar(*get_partition(datadata), ascertained=ascertained)
+            dd = get_by_id(data.get('data')) if data.get('data') else treelh.find('./data/data')
+            yield from printchar(*get_partition(dd), ascertained=ascertained)

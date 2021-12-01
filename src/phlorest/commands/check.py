@@ -8,6 +8,7 @@ METAKEYS = [
     'id', 'title', 'license', 'citation', 'name', 'author',
     'scaling', 'analysis', 'family'
 ]
+# FIXME: maybe get these from phlorest.Metadata?
 
 
 def register(parser):  # pragma: no cover
@@ -20,42 +21,45 @@ def run(args, d=None):
             d = get_dataset(args)
         except Exception as e:
             args.log.error("Unable to load %s - %s" % (args.dataset, e))
-            return
+            raise
+
+    def check(condition, msg):
+        if condition:
+            args.log.warning('{0.id}: {1}'.format(d, msg))
 
     # check metadata
     for mdkey in METAKEYS:
-        if not getattr(d.metadata, mdkey, ''):
-            args.log.warning("%s metadata missing value for `%s`" % (d.id, mdkey))
+        check(
+            not getattr(d.metadata, mdkey, ''),
+            "metadata missing value for `%s`" % mdkey)
 
-    # check title follows required format
-    if not getattr(d.metadata, 'title', '').startswith("Phlorest phylogeny derived from"):
-        args.log.warning("%s title does not follow `Phlorest phylogeny derived from`" % d.id)
+    check(
+        not getattr(d.metadata, 'title', '').startswith("Phlorest phylogeny derived from"),
+        "title does not follow `Phlorest phylogeny derived from`")
 
-    # we don't have a summary tree file, and it's not flagged as missing
-    if not (d.cldf_dir / 'summary.trees').exists() and not d.metadata.missing.get('summary'):
-        args.log.warning("%s summary tree file missing" % d.id)
+    check(
+        not (d.cldf_dir / 'summary.trees').exists() and not d.metadata.missing.get('summary'),
+        "summary tree file missing")
 
-    # we don't have a posterior tree file, and it's not flagged as missing
-    if not (d.cldf_dir / 'posterior.trees').exists() and not d.metadata.missing.get('posterior'):
-        args.log.warning("%s posterior tree file missing" % d.id)
+    check(
+        not (d.cldf_dir / 'posterior.trees').exists() and not d.metadata.missing.get('posterior'),
+        "posterior tree file missing")
 
-    # we don't have a nexus data file, and it's not flagged as missing
-    if not (d.cldf_dir / 'data.nex').exists() and not d.metadata.missing.get('nexus'):
-        args.log.warning("%s nexus data file missing" % d.id)
-        
-    # do we have characters?
-    if not d.characters and not d.metadata.missing.get('characters'):
-        args.log.warning("%s characters.csv file missing" % d.id)
-    
-    # check characters has the right columns
-    for char in d.characters:
-        if 'concepticonReference' in char:
-            args.log.warning("%s characters.csv uses `concepticonReference` rather than `Concepticon_ID`" % d.id)
-            break
-    
-    # check for unneeded Makefile
-    if (d.dir / 'Makefile').exists():
-        args.log.warning("%s has an unneeded Makefile" % d.id)
-    
+    check(
+        not (d.cldf_dir / 'data.nex').exists() and not d.metadata.missing.get('nexus'),
+        "nexus data file missing")
+
+    check(
+        not d.characters and not d.metadata.missing.get('characters'),
+        "characters.csv file missing")
+
+    check(
+        any('concepticonReference' in char for char in d.characters),
+        "characters.csv uses `concepticonReference` rather than `Concepticon_ID`")
+
+    check(
+        (d.dir / 'Makefile').exists(),
+        "has an unneeded Makefile")
+
     # is the cldf valid?
     d.cldf_reader().validate()

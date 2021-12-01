@@ -224,7 +224,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
             if row['glottocode']:
                 try:
                     glang = glangs[row['glottocode']]
-                except KeyError:
+                except KeyError:  # pragma: no cover
                     log.error('Invalid glottocode in taxa.csv: {}'.format(row['glottocode']))
             d = dict(
                 ID=row['taxon'],

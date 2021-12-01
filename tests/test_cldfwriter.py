@@ -22,3 +22,10 @@ def test_CLDFWriter(repos, tmp_path, mocker, nexus_tree, dataset, glottolog):
             Metadata(name='n', author='a', year=2021),
             mocker.Mock())
         writer.add_data(BeastFile(repos / 'raw' / 'beast.xml'), [], mocker.Mock())
+
+
+def test_CLDFWriter_nexus_data(repos, tmp_path, mocker, nexus_tree, dataset, glottolog):
+    with CLDFWriter(cldf_spec=cldfbench.CLDFSpec(dir=tmp_path)) as writer:
+        writer.add_taxa(dataset.taxa, glottolog, mocker.Mock())
+        writer.add_data(repos / 'raw' / 'data.nex', [{'Site': '0', 'Gloss': 'abc'}], mocker.Mock())
+        assert writer.cldf['ParameterTable', 'Gloss']
