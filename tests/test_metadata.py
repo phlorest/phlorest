@@ -2,6 +2,7 @@ from phlorest.metadata import Metadata
 
 
 def test_Metadata():
+    assert Metadata(id='abc').title == 'Phlorest phylogeny abc'
     md = Metadata(
         url='http://dx.doi.org/a/b',
         name='the name',

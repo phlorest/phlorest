@@ -43,12 +43,21 @@ class Metadata(cldfbench.Metadata):
     missing = attr.ib(default=attr.Factory(dict))
 
     def __attrs_post_init__(self):
-        assert self.name and self.author and self.year
         if self.url:
             u = urllib.parse.urlparse(self.url)
             if u.netloc == 'dx.doi.org':
                 self.url = urllib.parse.urlunsplit(('https', 'doi.org', u.path, '', ''))
-        self.title = "Phlorest phylogeny derived from {0.author} {0.year} '{0.name}'".format(self)
+
+        ref = self.author or ''
+        if self.year:
+            ref += ' {}'.format(self.year).strip()
+        if self.name:
+            ref += " '{}'".format(self.name).strip()
+        if ref:
+            ref = 'derived from {}'.format(ref)
+        else:
+            ref = self.id
+        self.title = "Phlorest phylogeny {}".format(ref)
 
     def common_props(self):
         res = cldfbench.Metadata.common_props(self)
