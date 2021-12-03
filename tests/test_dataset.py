@@ -21,6 +21,9 @@ def test_PhlorestDir(repos):
     assert nex.trees.trees[0] != d.read_tree(d / 'nexus.trees', detranslate=True)
     assert d.read_nexus('nexus.trees', remove_rate=True).trees.trees[0] == nex.trees.trees[0]
 
+    nex = d.read_nexus('nexus.trees', preprocessor=lambda s: s.replace('Cojubim', 'abcdefg'))
+    assert 'abcdefg' in nex.write()
+
 
 @pytest.mark.noci
 def test_Dataset(dataset, cldfwriter, mocker, glottolog, tmp_path):

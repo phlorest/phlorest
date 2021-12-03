@@ -22,7 +22,9 @@ class PhlorestDir(DataDir):
     def read_nexus(self,
                    path: typing.Union[str, pathlib.Path] = None,
                    text: str = None,
-                   remove_rate=False):
+                   remove_rate=False,
+                   encoding='utf-8-sig',
+                   preprocessor=lambda s: s):
         """
         :param path:
         :param remove_rate: Some trees have annotations before *and* after the colon, separating \
@@ -32,16 +34,17 @@ class PhlorestDir(DataDir):
         """
         assert (path or text) and not (path and text), 'Must pass either path or text'
         if not text:
-            text = self.read(path)
+            text = self.read(path, encoding=encoding)
         if remove_rate:
             text = re.sub(r':\[&rate=[0-9]*\.?[0-9]*]', ':', text)
-        return nexus.NexusReader.from_string(text)
+        return nexus.NexusReader.from_string(preprocessor(text))
 
     def read_trees(self,
                    path: typing.Union[str, pathlib.Path] = None,
                    text: str = None,
-                   detranslate=False):
-        nex = self.read_nexus(path=path, text=text)
+                   detranslate=False,
+                   preprocessor=lambda s: s):
+        nex = self.read_nexus(path=path, text=text, preprocessor=preprocessor)
         if detranslate:
             nex.trees.detranslate()
         return nex.trees.trees
@@ -49,8 +52,10 @@ class PhlorestDir(DataDir):
     def read_tree(self,
                   path: typing.Union[str, pathlib.Path] = None,
                   text: str = None,
-                  detranslate=False):
-        return self.read_trees(path=path, text=text, detranslate=detranslate)[0]
+                  detranslate=False,
+                  preprocessor=lambda s: s):
+        return self.read_trees(
+            path=path, text=text, detranslate=detranslate, preprocessor=preprocessor)[0]
 
 
 class Dataset(cldfbench.Dataset):
