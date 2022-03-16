@@ -6,8 +6,13 @@ import nexus
 import newick
 try:  # pragma: no cover
     import ete3
+    ete3.TreeStyle()
 except ImportError:  # pragma: no cover
     ete3 = None
+except AttributeError:  # pragma: no cover
+    # no PyQt5 installed?
+    ete3 = None
+
 
 
 def render_tree(tree,
@@ -31,7 +36,6 @@ def render_tree(tree,
 
     ts = ete3.TreeStyle()
     ts.show_leaf_name = True
-    # ts.show_branch_length = True
 
     if scaling == 'years':
         ts.scale = 0.025
@@ -80,7 +84,7 @@ def render_summary_tree(cldf, output, width=1000, units='px', ete3_format=0):
         if row['type'] == 'summary':
             legend = "Summary tree"
             if cldf.properties.get('dc:subject', {}).get('analysis'):
-                legend += ' of a {} analysis'.format(cldf.properties['dc:subject']['analysis'])
+                legend += ' of a {} analysis'.format(cldf.properties['dc:subject']['analysis'].title())
             if cldf.properties.get('dc:subject', {}).get('family'):
                 legend += ' of the {} family'.format(cldf.properties['dc:subject']['family'])
             if row['scaling'] != 'none':
