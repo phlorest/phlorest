@@ -43,8 +43,22 @@ class PhlorestDir(DataDir):
                    path: typing.Union[str, pathlib.Path] = None,
                    text: str = None,
                    detranslate=False,
+                   burnin=0,
+                   sample=0,
+                   strip_annotation=False,
                    preprocessor=lambda s: s):
         nex = self.read_nexus(path=path, text=text, preprocessor=preprocessor)
+        # remove burn-in first
+        if burnin:
+            nex = delete_trees(nex, list(range(burnin + 1)))
+        # ..then sample if needed
+        if sample:
+            nex = sample_trees(nex, sample)
+            print(len(nex.trees.trees))
+        # remove comments in asked
+        if strip_annotation:
+            nex = strip_comments_in_trees(nex)
+        # ...then detranslate.
         if detranslate:
             nex.trees.detranslate()
         return nex.trees.trees
