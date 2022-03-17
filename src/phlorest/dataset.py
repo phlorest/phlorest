@@ -67,9 +67,15 @@ class PhlorestDir(DataDir):
                   path: typing.Union[str, pathlib.Path] = None,
                   text: str = None,
                   detranslate=False,
+                  burnin=0,
+                  sample=0,
+                  strip_annotation=False,
                   preprocessor=lambda s: s):
         return self.read_trees(
-            path=path, text=text, detranslate=detranslate, preprocessor=preprocessor)[0]
+            path=path, text=text, detranslate=detranslate,
+            burnin=burnin, sample=sample,
+            strip_annotation=strip_annotation, 
+            preprocessor=preprocessor)[0]
 
 
 class Dataset(cldfbench.Dataset):
