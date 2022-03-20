@@ -26,7 +26,7 @@ class PhlorestDir(DataDir):
                    encoding='utf-8-sig',
                    preprocessor=lambda s: s):
         """
-        :param path:
+        :param path: path to nexus file.
         :param remove_rate: Some trees have annotations before *and* after the colon, separating \
         the branch length. The newick package can't handle these. So we can remove the simpler \
         annotation after the ":".
@@ -42,9 +42,33 @@ class PhlorestDir(DataDir):
     def read_trees(self,
                    path: typing.Union[str, pathlib.Path] = None,
                    text: str = None,
-                   detranslate=False,
-                   preprocessor=lambda s: s):
+                   detranslate: bool = False,
+                   burnin: int = 0,
+                   sample: int = 0,
+                   strip_annotation: bool = False,
+                   preprocessor = lambda s: s):
+        """
+        :param path: path to nexus file.
+        :param text: nexus content in text.
+        :param detranslate: return trees with translate blocks removed (default=False).
+        :param burnin: number of trees to remove as burn-in (default=none).
+        :param sample: number of trees to sample (default=all).
+        :param strip_annotation: remove comments and annotations in trees (default=False).
+        :param preprocessor: function to preprocess nexus text.
+        :return:
+        """
+        
         nex = self.read_nexus(path=path, text=text, preprocessor=preprocessor)
+        # remove burn-in first
+        if burnin:
+            nex = delete_trees(nex, list(range(burnin + 1)))
+        # ..then sample if needed
+        if sample:
+            nex = sample_trees(nex, sample)
+        # remove comments in asked
+        if strip_annotation:
+            nex = strip_comments_in_trees(nex)
+        # ...then detranslate.
         if detranslate:
             nex.trees.detranslate()
         return nex.trees.trees
@@ -52,10 +76,16 @@ class PhlorestDir(DataDir):
     def read_tree(self,
                   path: typing.Union[str, pathlib.Path] = None,
                   text: str = None,
-                  detranslate=False,
+                  detranslate: bool = False,
+                  burnin: int = 0,
+                  sample: int = 0,
+                  strip_annotation: bool = False,
                   preprocessor=lambda s: s):
         return self.read_trees(
-            path=path, text=text, detranslate=detranslate, preprocessor=preprocessor)[0]
+            path=path, text=text, detranslate=detranslate,
+            burnin=burnin, sample=sample,
+            strip_annotation=strip_annotation, 
+            preprocessor=preprocessor)[0]
 
 
 class Dataset(cldfbench.Dataset):

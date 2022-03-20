@@ -67,3 +67,58 @@ def test_Dataset_sample(dataset):
     res = dataset.sample(
         dataset.raw_dir / 'nexus.trees', n=1, strip_annotation=True, detranslate=True)
     assert res
+
+
+def test_PhlorestDir_read_trees(dataset):
+    tfile = dataset.raw_dir / 'posterior.trees'
+    # no args
+    assert len(dataset.raw_dir.read_trees(tfile)) == 3
+    
+    # sample
+    assert len(dataset.raw_dir.read_trees(tfile, sample=2)) == 2
+    
+    # burnin
+    trees = dataset.raw_dir.read_trees(tfile, burnin=2)
+    assert len(trees) == 1
+    assert 'tree TREE3' in trees[0]
+
+    trees = dataset.raw_dir.read_trees(tfile, burnin=1)
+    assert len(trees) == 2
+    assert 'tree TREE2' in trees[0]
+    assert 'tree TREE3' in trees[1]
+    
+    # strip_annotation
+    trees = dataset.raw_dir.read_trees(tfile, burnin=2, strip_annotation=True)
+    assert len(trees) == 1
+    assert 'tree TREE3' in trees[0]
+    assert '[' not in trees[0]
+
+    # preprocessor
+    trees = dataset.raw_dir.read_trees(
+        tfile,
+        burnin=2,
+        preprocessor=lambda t: t.replace("tree TREE", "tree TESTTREE")
+    )
+    assert len(trees) == 1
+    assert 'tree TESTTREE' in trees[0]
+    
+    # detranslate
+    trees = dataset.raw_dir.read_trees(tfile, burnin=2, detranslate=True)
+    assert len(trees) == 1
+    assert 'Cojubim' in trees[0]
+    
+    # combined
+    trees = dataset.raw_dir.read_trees(
+        tfile,
+        burnin=1, 
+        sample=1,
+        preprocessor=lambda t: t.replace("tree TREE", "tree TESTTREE"),
+        strip_annotation=True,
+        detranslate=True
+    )
+    assert len(trees) == 1
+    assert 'TREE1' not in trees[0], \
+        'Tree1 should never be sampled due to burn-in setting'
+    assert '[' not in trees[0]
+    assert 'Cojubim' in trees[0]
+
