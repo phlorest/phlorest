@@ -28,9 +28,9 @@ setup(
     python_requires='>=3.6',
     install_requires=[
         'clldutils',
-        'cldfbench>=1.9.0',
+        'cldfbench>=1.10.0',
         'attrs',
-        'python-nexus>=2.5.2',
+        'python-nexus>=2.8.0',
     ],
     extras_require={
         'ete3': ['numpy', 'PyQt5', 'ete3'],
