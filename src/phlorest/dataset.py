@@ -46,7 +46,7 @@ class PhlorestDir(DataDir):
                    burnin: int = 0,
                    sample: int = 0,
                    strip_annotation: bool = False,
-                   preprocessor = lambda s: s):
+                   preprocessor=lambda s: s):
         """
         :param path: path to nexus file.
         :param text: nexus content in text.
@@ -57,7 +57,7 @@ class PhlorestDir(DataDir):
         :param preprocessor: function to preprocess nexus text.
         :return:
         """
-        
+
         nex = self.read_nexus(path=path, text=text, preprocessor=preprocessor)
         # remove burn-in first
         if burnin:
@@ -84,7 +84,7 @@ class PhlorestDir(DataDir):
         return self.read_trees(
             path=path, text=text, detranslate=detranslate,
             burnin=burnin, sample=sample,
-            strip_annotation=strip_annotation, 
+            strip_annotation=strip_annotation,
             preprocessor=preprocessor)[0]
 
 

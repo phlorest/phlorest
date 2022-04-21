@@ -14,7 +14,6 @@ except AttributeError:  # pragma: no cover
     ete3 = None
 
 
-
 def render_tree(tree,
                 output: pathlib.Path,
                 scaling: str = None,
@@ -84,9 +83,11 @@ def render_summary_tree(cldf, output, width=1000, units='px', ete3_format=0):
         if row['type'] == 'summary':
             legend = "Summary tree"
             if cldf.properties.get('dc:subject', {}).get('analysis'):
-                legend += ' of a {} analysis'.format(cldf.properties['dc:subject']['analysis'].title())
+                title = cldf.properties['dc:subject']['analysis'].title()
+                legend += ' of a {} analysis'.format(title)
             if cldf.properties.get('dc:subject', {}).get('family'):
-                legend += ' of the {} family'.format(cldf.properties['dc:subject']['family'])
+                family = cldf.properties['dc:subject']['family']
+                legend += ' of the {} family'.format(family)
             if row['scaling'] != 'none':
                 legend += ' with {} as scale'.format(row['scaling'])
             #
