@@ -9,25 +9,17 @@ class Dataset(phlorest.Dataset):
 
     def cmd_makecldf(self, args):
         self.init(args)
+        
+        # Add summary tree (e.g. MCCT or Consensus)
+        # summary = self.raw_dir.read_tree('summary.trees', detranslate=True)
+        # args.writer.add_summary(summary, self.metadata, args.log)
 
-        #args.writer.add_summary(
-        #    self.raw_dir.read_tree('nex.trees', detranslate=True),
-        #    self.metadata,
-        #    args.log)
-
-        #posterior = self.sample(
-        #    self.remove_burnin(
-        #        self.raw_dir.read('post.trees.gz'),
-        #        10000),
-        #    detranslate=True,
-        #    as_nexus=True)
-
-        #args.writer.add_posterior(
-        #    posterior.trees.trees,
-        #    self.metadata,
-        #    args.log)
-
-        #args.writer.add_data(
-        #    self.raw_dir.read_nexus('data.nex'),
-        #    self.characters,
-        #    args.log)
+        # Add posterior tree distribution
+        # posterior = self.raw_dir.read_trees(
+        #     'posterior.trees.gz',
+        #     burnin=1001, sample=1000, detranslate=True)
+        # args.writer.add_posterior(posterior, self.metadata, args.log)
+        
+        # Add nexus data
+        # data = self.raw_dir.read_nexus('data.nex')
+        # args.writer.add_data(data, self.characters, args.log)
