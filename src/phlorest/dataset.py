@@ -63,9 +63,9 @@ class PhlorestDir(DataDir):
         if burnin:
             nex = delete_trees(nex, list(range(burnin + 1)))
         # ..then sample if needed
-        if sample:
+        if sample and len(nex.trees.trees) > sample:
             nex = sample_trees(nex, sample)
-        # remove comments in asked
+        # remove comments if asked
         if strip_annotation:
             nex = strip_comments_in_trees(nex)
         # ...then detranslate.
