@@ -134,6 +134,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
                     log,
                     source=None):
         self.add_tree(tree, self.summary, 'summary', metadata, log, 'summary', source=source)
+        log.info("added summary tree")
 
     def add_posterior(self,
                       trees: typing.List[NexusTree],
@@ -152,6 +153,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
                 log,
                 'sample',
                 source=source)
+        log.info("added posterior trees (n=%d)" % i)
 
     def add_data(self, input, characters, log):
         if isinstance(input, BeastFile):
@@ -204,6 +206,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
                 'dc:format': 'https://en.wikipedia.org/wiki/Nexus_file',
             }
         )
+        log.info("added data nexus (characters=%d)" % len(chars))
 
     def add_taxa(self, taxa, glottolog, log):
         glangs = {lg.id: lg for lg in glottolog.languoids()}
@@ -235,3 +238,4 @@ class CLDFWriter(cldfbench.CLDFWriter):
                 Longitude=glang.longitude if glang else None,
             )
             self.add_obj('LanguageTable', d, row)
+        log.info("added taxa (taxa=%d)" % len(taxa))
