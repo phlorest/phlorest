@@ -36,7 +36,7 @@ class PhlorestDir(DataDir):
         if not text:
             text = self.read(path, encoding=encoding)
         if remove_rate:
-            text = re.sub(r':\[&rate=[0-9]*\.?[0-9]*]', ':', text)
+            text = self.remove_rate(text)
         return nexus.NexusReader.from_string(preprocessor(text))
 
     def read_trees(self,
@@ -45,14 +45,21 @@ class PhlorestDir(DataDir):
                    detranslate: bool = False,
                    burnin: int = 0,
                    sample: int = 0,
+                   remove_rate: bool = False,
                    strip_annotation: bool = False,
                    preprocessor=lambda s: s):
         """
+        Reads trees from `path` and transforms them as required.
+        
+        Processing order:
+            burnin -> sample -> strip_annotation -> remove_rate -> detranslate
+        
         :param path: path to nexus file.
         :param text: nexus content in text.
         :param detranslate: return trees with translate blocks removed (default=False).
         :param burnin: number of trees to remove as burn-in (default=none).
         :param sample: number of trees to sample (default=all).
+        :param remove_rate: remove extra rate information.
         :param strip_annotation: remove comments and annotations in trees (default=False).
         :param preprocessor: function to preprocess nexus text.
         :return:
@@ -65,9 +72,12 @@ class PhlorestDir(DataDir):
         # ..then sample if needed
         if sample:
             nex = sample_trees(nex, sample)
-        # remove comments in asked
+        # remove comments if asked
         if strip_annotation:
             nex = strip_comments_in_trees(nex)
+        # remove rates if asked
+        if remove_rate:
+            nex.trees.trees = [self.remove_rate(t) for t in nex.trees.trees]
         # ...then detranslate.
         if detranslate:
             nex.trees.detranslate()
@@ -79,6 +89,7 @@ class PhlorestDir(DataDir):
                   detranslate: bool = False,
                   burnin: int = 0,
                   sample: int = 0,
+                  remove_rate: bool = False,
                   strip_annotation: bool = False,
                   preprocessor=lambda s: s):
         return self.read_trees(
@@ -86,6 +97,19 @@ class PhlorestDir(DataDir):
             burnin=burnin, sample=sample,
             strip_annotation=strip_annotation,
             preprocessor=preprocessor)[0]
+
+    def remove_rate(self, text: str):
+        """
+        Some trees have annotations before *and* after the colon (i.e. on the
+        node), separating the branch length. The newick package can't handle
+        these. This method removes the simpler annotation after the ":", keeping
+        the branch annotations.
+        
+        :param text: nexus content in text.
+        :return: str
+        """
+        return re.sub(r':\[&rate=[0-9]*\.?[0-9]*]', ':', text)
+        
 
 
 class Dataset(cldfbench.Dataset):
