@@ -25,6 +25,13 @@ def test_PhlorestDir(repos):
     assert 'abcdefg' in nex.write()
 
 
+def test_PhlorestDir_remove_rate(repos):
+    d = PhlorestDir(repos / 'raw')
+    nex = d.read_nexus('trees_with_rate.trees')
+    res = d.remove_rate(nex.trees.trees[0])
+    assert '[&rate=0.10061354528306601]' not in res
+
+
 @pytest.mark.noci
 def test_Dataset(dataset, cldfwriter, mocker, glottolog, tmp_path):
     args = argparse.Namespace(
