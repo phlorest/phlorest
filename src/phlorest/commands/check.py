@@ -52,10 +52,16 @@ def run(args, d=None):
     check(
         not d.characters and not d.metadata.missing.get('characters'),
         "characters.csv file missing")
-
+    
     check(
         any('concepticonReference' in char for char in d.characters),
         "characters.csv uses `concepticonReference` rather than `Concepticon_ID`")
+
+    # check that characters are coded if possible
+    if d.characters and not d.metadata.missing.get('concepticon'):
+        check(
+            all(char.get('Concepticon_ID', "") == "" for char in d.characters),
+            "characters.csv file missing concepticon coding")
 
     check(
         (d.dir / 'Makefile').exists(),
