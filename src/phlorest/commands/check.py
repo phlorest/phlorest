@@ -34,6 +34,10 @@ def run(args, d=None):
             "metadata missing value for `%s`" % mdkey)
 
     check(
+        not (d.raw_dir / 'source.bib').exists(),
+        "raw/source.bib file missing")
+
+    check(
         not getattr(d.metadata, 'title', '').startswith("Phlorest phylogeny derived from"),
         "title does not follow `Phlorest phylogeny derived from`")
 
