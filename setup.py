@@ -31,9 +31,10 @@ setup(
         'cldfbench>=1.10.0',
         'attrs',
         'python-nexus>=2.8.0',
+        'pyglottolog>=-3.9.0',
+        'toytree>=toytree-2.0.1'
     ],
     extras_require={
-        'ete3': ['numpy', 'PyQt5', 'ete3'],
         'dev': ['flake8', 'wheel', 'twine'],
         'test': [
             'pyglottolog',
@@ -43,8 +44,8 @@ setup(
             'coverage>=4.2',
             'newick',
             'numpy',
-            'PyQt5',
-            'ete3',
+            'toytree',
+            'pyglottolog',
         ],
     },
     classifiers=[

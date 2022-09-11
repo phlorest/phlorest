@@ -4,14 +4,9 @@ import xml.etree.cElementTree as ElementTree
 
 import nexus
 import newick
-try:  # pragma: no cover
-    import ete3
-    ete3.TreeStyle()
-except ImportError:  # pragma: no cover
-    ete3 = None
-except AttributeError:  # pragma: no cover
-    # no PyQt5 installed?
-    ete3 = None
+
+import toytree
+import toyplot.svg
 
 
 def render_tree(tree,
@@ -19,11 +14,7 @@ def render_tree(tree,
                 scaling: str = None,
                 gcodes: dict = None,
                 legend: str = None,
-                width: int = 1000,
-                units: str = 'px',
-                ete3_format: int = 0):
-    if ete3 is None:  # pragma: no cover
-        raise ValueError('This feature requires ete3. Install with "pip install phlorest[ete3]"')
+                width: int = 1000):
 
     gcodes = gcodes or {}
 
@@ -33,29 +24,28 @@ def render_tree(tree,
         if not n.is_leaf:
             n.name = None
 
-    ts = ete3.TreeStyle()
-    ts.show_leaf_name = True
-
-    if scaling == 'years':
-        ts.scale = 0.025
-
-    if legend:
-        ts.legend.add_face(ete3.TextFace(legend), column=0)
-
     nwk = newick.loads(tree.newick_string, strip_comments=True)[0]
     nwk.visit(rename)
-    tree = ete3.Tree(nwk.newick + ';', format=ete3_format)
-    tree.render(str(output), w=width, units=units, tree_style=ts)
+    tree = toytree.tree(nwk.newick + ";")
+    canvas, axes, mark = tree.draw(
+        width=width,
+        node_hover=True,
+        tip_labels_align=True,
+        scalebar=True
+    )
+    axes.label.text = legend
+    toyplot.svg.render(canvas, str(output))
     add_glottolog_links(output, gcodes)
 
 
 def add_glottolog_links(in_, gcodes, out=None):
-    # Post-process the SVG to turn leaf names with Glottocodes into links:
+    "Post-process the SVG to turn leaf names with Glottocodes into links"""
+    ns = '{http://www.w3.org/2000/svg}'
     svg = ElementTree.fromstring(in_.read_text(encoding='utf8'))
-    for t in svg.findall('.//{http://www.w3.org/2000/svg}text'):
+    for t in svg.findall('*.//{0}g[@class="toytree-TipLabels"]/{0}g/{0}text'.format(ns)):
         lid, _, gcode = t.text.strip().partition('--')
         if gcode:
-            se = ElementTree.SubElement(t, '{http://www.w3.org/2000/svg}text')
+            se = ElementTree.SubElement(t, '{0}text'.format(ns))
             gname = gcodes[lid][1]
             if gname:
                 se.text = '{} - {} [{}]'.format(lid, gname, gcode)
@@ -63,7 +53,7 @@ def add_glottolog_links(in_, gcodes, out=None):
                 se.text = '{} - [{}]'.format(lid, gcode)
             se.attrib = copy.copy(t.attrib)
             se.attrib['fill'] = '#0000ff'
-            t.tag = '{http://www.w3.org/2000/svg}a'
+            t.tag = '{0}a'.format(ns)
             t.attrib = {
                 'href': 'https://glottolog.org/resource/languoid/id/{}'.format(gcode),
                 'title': 'The glottolog name',
@@ -78,7 +68,7 @@ def nexus_tree_from_row(cldf, row):
             return tree
 
 
-def render_summary_tree(cldf, output, width=1000, units='px', ete3_format=0):
+def render_summary_tree(cldf, output, width=1000):
     for row in cldf['trees.csv']:
         if row['type'] == 'summary':
             legend = "Summary tree"
@@ -89,10 +79,7 @@ def render_summary_tree(cldf, output, width=1000, units='px', ete3_format=0):
                 family = cldf.properties['dc:subject']['family']
                 legend += ' of the {} family'.format(family)
             if row['scaling'] != 'none':
-                legend += ' with {} as scale'.format(row['scaling'])
-            #
-            # Rescale to years?
-            #
+                legend += ' with branches in {}'.format(row['scaling'])
             render_tree(
                 nexus_tree_from_row(cldf, row),
                 output,
@@ -101,8 +88,6 @@ def render_summary_tree(cldf, output, width=1000, units='px', ete3_format=0):
                     for r in cldf['LanguageTable'] if r['Glottocode']},
                 scaling=row['scaling'],
                 legend=legend,
-                width=width,
-                units=units,
-                ete3_format=ete3_format,
+                width=width
             )
             return output
