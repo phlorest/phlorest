@@ -26,9 +26,11 @@ def render_tree(tree,
 
     nwk = newick.loads(tree.newick_string, strip_comments=True)[0]
     nwk.visit(rename)
+    ntaxa = sum(1 for n in nwk.walk() if n.is_leaf)
     tree = toytree.tree(nwk.newick + ";")
     canvas, axes, mark = tree.draw(
         width=width,
+        height=ntaxa * 13 + 50,
         node_hover=True,
         tip_labels_align=True,
         scalebar=True
