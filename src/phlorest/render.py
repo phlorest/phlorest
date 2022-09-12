@@ -30,9 +30,15 @@ def render_tree(tree,
     tree = toytree.tree(nwk.newick + ";")
     canvas, axes, mark = tree.draw(
         width=width,
-        height=ntaxa * 13 + 50,
+        height=ntaxa * 15 + 50,
         node_hover=True,
         tip_labels_align=True,
+        tip_labels_style={
+            "fill": "#262626",
+            "font-size": "11px",
+            "-toyplot-anchor-shift": "5px",
+            "line-height": "14px",
+        },
         scalebar=True
     )
     axes.label.text = legend
