@@ -162,6 +162,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
             nex = input if isinstance(input, (nexus.NexusReader, nexus.NexusWriter)) \
                 else nexus.NexusReader(input)
             chars = sorted(nex.data.charlabels.items())
+            
         if not chars:
             chars = [
                 (i + 1, 'Site {}'.format(i + 1))
@@ -195,8 +196,13 @@ class CLDFWriter(cldfbench.CLDFWriter):
         for site, label in chars:
             d = dict(ID=site, Name=label, Nexus_File='data.nex')
             self.add_obj('ParameterTable', d, md.get(site, {}), rename=dict(Label='Name'))
-        assert all(t in self._lids for t in nex.data.taxa)
-        assert all(t in self._lids for t in nex.data.matrix)
+        
+        missing = [t for t in nex.data.taxa if t not in self._lids]
+        assert not len(missing), "Taxa in nexus not in taxa.csv: %r" % missing
+
+        missing = [t for t in nex.data.matrix if t not in self._lids]
+        assert not len(missing), "Taxa in nexus not in taxa.csv: %r" % missing
+        
         nex.write_to_file(self.cldf_spec.dir / 'data.nex')
         self.cldf.add_provenance(
             wasDerivedFrom={

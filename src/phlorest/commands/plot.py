@@ -1,5 +1,5 @@
 """
-
+Plots a phylogeny to SVG
 """
 import webbrowser
 

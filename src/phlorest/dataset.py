@@ -115,7 +115,6 @@ class PhlorestDir(DataDir):
 class Dataset(cldfbench.Dataset):
     metadata_cls = Metadata
     datadir_cls = PhlorestDir
-    __ete3_newick_format__ = 0
 
     def __init__(self):
         cldfbench.Dataset.__init__(self)
@@ -132,10 +131,7 @@ class Dataset(cldfbench.Dataset):
             glang = args.glottolog.api.languoid(self.metadata.family)
             self.metadata.family = '{} [{}]'.format(glang.name, glang.id)
         cldfbench.Dataset._cmd_makecldf(self, args)
-        render_summary_tree(
-            self.cldf_reader(),
-            self.dir / 'summary_tree.svg',
-            ete3_format=self.__ete3_newick_format__)
+        render_summary_tree(self.cldf_reader(), self.dir / 'summary_tree.svg')
 
     def init(self, args):
         args.writer.add_taxa(self.taxa, args.glottolog.api, args.log)
