@@ -23,16 +23,21 @@ setup(
          'cldfbench.scaffold': [
             'phlorest=phlorest.scaffold:PhlorestTemplate',
         ],
+        'console_scripts': [
+            'phlorest=phlorest.__main__:main'
+        ],
     },
     platforms='any',
     python_requires='>=3.7',
     install_requires=[
         'clldutils',
         'cldfbench>=1.10.0',
+        'cldfcatalog',
         'attrs',
         'python-nexus>=2.8.0',
         'pyglottolog>=-3.9.0',
-        'toytree>=toytree-2.0.1'
+        'toytree>=toytree-2.0.1',
+        'termcolor',
     ],
     extras_require={
         'dev': ['flake8', 'wheel', 'twine'],
@@ -46,6 +51,7 @@ setup(
             'numpy',
             'toytree',
             'pyglottolog',
+            'termcolor',
         ],
     },
     classifiers=[
