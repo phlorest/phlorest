@@ -32,7 +32,7 @@ def run(args, d=None):
         check(
             not getattr(d.metadata, mdkey, ''),
             "metadata missing value for `%s`" % mdkey)
-
+        
     check(
         not (d.raw_dir / 'source.bib').exists(),
         "raw/source.bib file missing")
@@ -60,16 +60,17 @@ def run(args, d=None):
     check(
         any('concepticonReference' in char for char in d.characters),
         "characters.csv uses `concepticonReference` rather than `Concepticon_ID`")
-
+    
     # check that characters are coded if possible
     if d.characters and not d.metadata.missing.get('concepticon'):
         check(
             all(char.get('Concepticon_ID', "") == "" for char in d.characters),
             "characters.csv file missing concepticon coding")
 
-    check(
-        (d.dir / 'Makefile').exists(),
-        "has an unneeded Makefile")
+    check((d.dir / 'Makefile').exists(), "has a legacy Makefile")
 
     # is the cldf valid?
-    d.cldf_reader().validate()
+    if (d.dir / 'cldf' / 'Generic-metadata.json').exists():
+        d.cldf_reader().validate()
+    else:
+        check(True, 'CLDF dataset not generated')
