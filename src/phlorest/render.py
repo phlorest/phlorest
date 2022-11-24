@@ -24,7 +24,6 @@ def render_tree(nwk,
         if not n.is_leaf:
             n.name = None
 
-    nwk = newick.loads(nwk.newick, strip_comments=True)[0]
     nwk.visit(rename)
     ntaxa = sum(1 for n in nwk.walk() if n.is_leaf)
     tree = toytree.tree(nwk.newick + ";")
@@ -83,7 +82,7 @@ def render_summary_tree(cldf, output, width=1000):
             if tree.tree_branch_length_unit:
                 legend += ' with branches in {}'.format(tree.tree_branch_length_unit)
             render_tree(
-                tree.newick(),
+                tree.newick(strip_comments=True),
                 output,
                 gcodes={
                     r['ID']: (r['Glottocode'], r.get('Glottolog_Name'))
