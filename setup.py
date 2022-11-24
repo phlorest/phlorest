@@ -30,6 +30,7 @@ setup(
     platforms='any',
     python_requires='>=3.7',
     install_requires=[
+        'pycldf>=1.33.0',
         'clldutils',
         'cldfbench>=1.10.0',
         'cldfcatalog',

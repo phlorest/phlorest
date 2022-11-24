@@ -22,7 +22,6 @@
         {
             "dc:conformsTo": "http://cldf.clld.org/v1.0/terms.rdf#LanguageTable",
             "dc:description": "The LanguageTable lists the taxa, i.e. the leafs of the phylogeny, mapped to languoids.",
-            "dc:extent": 10,
             "tableSchema": {
                 "columns": [
                     {
@@ -73,7 +72,7 @@
                         },
                         "propertyUrl": "http://cldf.clld.org/v1.0/terms.rdf#glottocode",
                         "required": false,
-                        "valueUrl": "http://glottolog.org/resource/languoid/id/{glottocode}",
+                        "valueUrl": "http://glottolog.org/resource/languoid/id/{Glottocode}",
                         "name": "Glottocode"
                     },
                     {
@@ -97,7 +96,34 @@
             "url": "languages.csv"
         },
         {
-            "dc:extent": 1001,
+            "dc:conformsTo": "http://cldf.clld.org/v1.0/terms.rdf#MediaTable",
+            "tableSchema": {
+                "columns": [
+                    {
+                        "propertyUrl": "http://cldf.clld.org/v1.0/terms.rdf#id",
+                        "name": "ID"
+                    },
+                    {
+                        "propertyUrl": "http://cldf.clld.org/v1.0/terms.rdf#pathInZip",
+                        "name": "Path_In_Zip"
+                    },
+                    {
+                        "propertyUrl": "http://cldf.clld.org/v1.0/terms.rdf#mediaType",
+                        "name": "Media_Type"
+                    },
+                    {
+                        "propertyUrl": "http://cldf.clld.org/v1.0/terms.rdf#downloadUrl",
+                        "name": "Download_URL"
+                    }
+                ],
+                "primaryKey": [
+                    "ID"
+                ]
+            },
+            "url": "media.csv"
+        },
+        {
+            "dc:conformsTo": "http://cldf.clld.org/v1.0/terms.rdf#TreeTable",
             "tableSchema": {
                 "columns": [
                     {
@@ -110,11 +136,12 @@
                     },
                     {
                         "dc:description": "The newick representation of the tree, labeled with identifiers as described in LanguageTable, is stored in the TREES block of the Nexus file specified here. (See https://en.wikipedia.org/wiki/Nexus_file)",
-                        "propertyUrl": "http://purl.org/dc/terms/relation",
+                        "propertyUrl": "http://cldf.clld.org/v1.0/terms.rdf#mediaReference",
                         "name": "Nexus_File"
                     },
                     {
                         "dc:description": "Whether the tree is rooted (true) or unrooted (false) (or no info is available (null))",
+                        "propertyUrl": "http://cldf.clld.org/v1.0/terms.rdf#treeIsRooted",
                         "datatype": "boolean",
                         "name": "rooted"
                     },
@@ -124,10 +151,12 @@
                             "base": "string",
                             "format": "summary|sample"
                         },
+                        "propertyUrl": "http://cldf.clld.org/v1.0/terms.rdf#treeType",
                         "name": "type"
                     },
                     {
                         "dc:description": "Specifies the method that was used to create the tree",
+                        "propertyUrl": "http://cldf.clld.org/v1.0/terms.rdf#description",
                         "name": "method"
                     },
                     {
@@ -135,6 +164,7 @@
                             "base": "string",
                             "format": "none|change|substitutions|years|centuries|millennia"
                         },
+                        "propertyUrl": "http://cldf.clld.org/v1.0/terms.rdf#treeBranchLengthUnit",
                         "name": "scaling"
                     },
                     {

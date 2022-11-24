@@ -2,14 +2,14 @@ import copy
 import pathlib
 import xml.etree.cElementTree as ElementTree
 
-import nexus
 import newick
+from pycldf.trees import TreeTable
 
 import toytree
 import toyplot.svg
 
 
-def render_tree(tree,
+def render_tree(nwk,
                 output: pathlib.Path,
                 scaling: str = None,
                 gcodes: dict = None,
@@ -24,7 +24,7 @@ def render_tree(tree,
         if not n.is_leaf:
             n.name = None
 
-    nwk = newick.loads(tree.newick_string, strip_comments=True)[0]
+    nwk = newick.loads(nwk.newick, strip_comments=True)[0]
     nwk.visit(rename)
     ntaxa = sum(1 for n in nwk.walk() if n.is_leaf)
     tree = toytree.tree(nwk.newick + ";")
@@ -70,15 +70,9 @@ def add_glottolog_links(in_, gcodes, out=None):
     (out or in_).write_bytes(ElementTree.tostring(svg))
 
 
-def nexus_tree_from_row(cldf, row):
-    for tree in nexus.NexusReader(cldf.directory / row['Nexus_File']).trees:
-        if tree.name == row['ID']:
-            return tree
-
-
 def render_summary_tree(cldf, output, width=1000):
-    for row in cldf['trees.csv']:
-        if row['type'] == 'summary':
+    for tree in TreeTable(cldf):
+        if tree.tree_type == 'summary':
             legend = "Summary tree"
             if cldf.properties.get('dc:subject', {}).get('analysis'):
                 title = cldf.properties['dc:subject']['analysis'].title()
@@ -86,15 +80,15 @@ def render_summary_tree(cldf, output, width=1000):
             if cldf.properties.get('dc:subject', {}).get('family'):
                 family = cldf.properties['dc:subject']['family']
                 legend += ' of the {} family'.format(family)
-            if row['scaling'] != 'none':
-                legend += ' with branches in {}'.format(row['scaling'])
+            if tree.tree_branch_length_unit:
+                legend += ' with branches in {}'.format(tree.tree_branch_length_unit)
             render_tree(
-                nexus_tree_from_row(cldf, row),
+                tree.newick(),
                 output,
                 gcodes={
                     r['ID']: (r['Glottocode'], r.get('Glottolog_Name'))
                     for r in cldf['LanguageTable'] if r['Glottocode']},
-                scaling=row['scaling'],
+                scaling=tree.tree_branch_length_unit,
                 legend=legend,
                 width=width
             )

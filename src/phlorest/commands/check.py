@@ -32,7 +32,7 @@ def run(args, d=None):
         check(
             not getattr(d.metadata, mdkey, ''),
             "metadata missing value for `%s`" % mdkey)
-        
+
     check(
         not (d.raw_dir / 'source.bib').exists(),
         "raw/source.bib file missing")
@@ -56,11 +56,11 @@ def run(args, d=None):
     check(
         not d.characters and not d.metadata.missing.get('characters'),
         "characters.csv file missing")
-    
+
     check(
         any('concepticonReference' in char for char in d.characters),
         "characters.csv uses `concepticonReference` rather than `Concepticon_ID`")
-    
+
     # check that characters are coded if possible
     if d.characters and not d.metadata.missing.get('concepticon'):
         check(

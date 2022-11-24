@@ -18,7 +18,7 @@ def test_add_glottolog_links(tmp_path, repos):
 @pytest.mark.noci
 def test_render(tmp_path):
     render_tree(
-        Tree('tree n = (A:500,B:500.7):700;'),
+        Tree('tree n = (A:500,B:500.7):700;').newick_tree,
         tmp_path / 'test.svg',
         gcodes={'A': ('x', 'y'), 'B': ('x', '')},
         scaling='years',

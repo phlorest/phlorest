@@ -6,7 +6,6 @@ Like programs such as git, this cli splits its functionality into sub-commands
 The rationale behind this is that while a lot of different tasks may be
 triggered using this cli, most of them require common configuration.
 """
-import csv
 import sys
 import argparse
 import contextlib
@@ -22,6 +21,7 @@ from cldfcatalog import Config
 from cldfbench.catalogs import BUILTIN_CATALOGS
 
 import termcolor
+
 
 def main(args=None, catch_all=False, parsed_args=None, log=None):
     parser, subparsers = get_parser_and_subparsers(phlorest.__name__)

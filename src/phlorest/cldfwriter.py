@@ -7,7 +7,7 @@ import nexus
 from nexus.handlers.tree import Tree as NexusTree
 from pycldf.terms import TERMS
 
-from .metadata import SCALING, Metadata
+from .metadata import Metadata
 from .nexuslib import NexusFile
 from .beast import BeastFile
 
@@ -17,7 +17,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
         self._lids = set()
         self.summary = NexusFile(self.cldf_spec.dir / 'summary.trees')
         self.summary.__enter__()
-        self.posterior = NexusFile(self.cldf_spec.dir / 'posterior.trees')
+        self.posterior = NexusFile(self.cldf_spec.dir / 'posterior.trees', zipped=True)
         self.posterior.__enter__()
         res = cldfbench.CLDFWriter.__enter__(self)
         self.add_schema()
@@ -33,51 +33,8 @@ class CLDFWriter(cldfbench.CLDFWriter):
         t.common_props['dc:description'] = \
             "The LanguageTable lists the taxa, i.e. the leafs of the phylogeny, mapped to " \
             "languoids."
-        self.cldf.add_table(
-            'trees.csv',
-            {
-                'name': 'ID',
-                'propertyUrl': 'http://cldf.clld.org/v1.0/terms.rdf#id',
-            },
-            {
-                'name': 'Name',
-                'propertyUrl': 'http://cldf.clld.org/v1.0/terms.rdf#name',
-            },
-            {
-                'name': 'Nexus_File',
-                'dc:description': 'The newick representation of the tree, labeled with identifiers '
-                                  'as described in LanguageTable, is stored in the TREES '
-                                  'block of the Nexus file specified here. '
-                                  '(See https://en.wikipedia.org/wiki/Nexus_file)',
-                'propertyUrl': 'http://purl.org/dc/terms/relation',
-            },
-            {
-                'name': 'rooted',  # bool or None
-                'datatype': 'boolean',
-                'dc:description': "Whether the tree is rooted (true) or unrooted (false) (or no "
-                                  "info is available (null))"
-            },
-            {
-                'name': 'type',  # summary or sample
-                'datatype': {'base': 'string', 'format': 'summary|sample'},
-                'dc:description': "Whether the tree is a summary (or consensus) tree, i.e. can be "
-                                  "analysed in isolation, or whether it is a sample, resulting "
-                                  "from a method that creates multiple trees",
-            },
-            {
-                'name': 'method',
-                'dc:description': 'Specifies the method that was used to create the tree'
-            },
-            {
-                'name': 'scaling',
-                'datatype': {'base': 'string', 'format': '|'.join(SCALING)},
-            },
-            {
-                'name': 'Source',
-                'separator': ';',
-                'propertyUrl': 'http://cldf.clld.org/v1.0/terms.rdf#source',
-            },
-        )
+        self.cldf.add_component('TreeTable')
+        self.cldf.add_component('MediaTable')
 
     def add_columns(self, table, obj, log, exclude=None):
         existing = [c.name for c in self.cldf[table].tableSchema.columns]
@@ -94,7 +51,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
 
         self.cldf.add_columns(table, *new)
 
-    def add_obj(self, table, d, row, rename=None):
+    def add_obj(self, table, d, row=None, rename=None):
         rename = rename or {}
         for k, v in (row or {}).items():
             k = rename.get(k, k)
@@ -117,14 +74,25 @@ class CLDFWriter(cldfbench.CLDFWriter):
             if len(bibkeys) == 1:
                 source = bibkeys[0]
 
-        self.objects['trees.csv'].append(dict(
+        # Add media file only if necessary!
+        mids = [m['ID'] for m in self.objects['MediaTable']]
+        if nex.path.stem not in mids:
+            self.objects['MediaTable'].append(dict(
+                ID=nex.path.stem,
+                Media_Type='text/plain',
+                Download_URL='file:///{}{}'.format(
+                    nex.path.name, '' if nex.path.stem == 'summary' else '.zip'),
+                Path_In_Zip=None if nex.path.stem == 'summary' else 'posterior.trees',
+            ))
+
+        self.objects['TreeTable'].append(dict(
             ID=tid,
-            Name=tree.name,
-            Nexus_File=nex.path.name,
-            rooted=tree.rooted,
-            type=type_,
-            method=metadata.analysis,
-            scaling=nex.scaling,
+            Name=tid,
+            Media_ID=nex.path.stem,
+            Tree_Is_Rooted=tree.rooted,
+            Tree_Type=type_,
+            Description=metadata.analysis,
+            Tree_Branch_Length_Unit=None if nex.scaling == 'none' else nex.scaling,
             Source=[source] if isinstance(source, str) else source,
         ))
 
@@ -162,7 +130,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
             nex = input if isinstance(input, (nexus.NexusReader, nexus.NexusWriter)) \
                 else nexus.NexusReader(input)
             chars = sorted(nex.data.charlabels.items())
-            
+
         if not chars:
             chars = [
                 (i + 1, 'Site {}'.format(i + 1))
@@ -182,7 +150,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
                     'The data for this parameter is stored at 1-based index {ID} '
                     'of the sequences in the DATA block of the Nexus file specified here. '
                     '(See https://en.wikipedia.org/wiki/Nexus_file)',
-                'propertyUrl': 'http://purl.org/dc/terms/relation',
+                'propertyUrl': 'http://cldf.clld.org/v1.0/terms.rdf#mediaReference',
             },
         )
         t.common_props['dc:description'] = \
@@ -194,15 +162,18 @@ class CLDFWriter(cldfbench.CLDFWriter):
         self.cldf['ParameterTable', 'ID'].common_props['dc:description'] = \
             "Sequence index of the site in the corresponding Nexus file."
         for site, label in chars:
-            d = dict(ID=site, Name=label, Nexus_File='data.nex')
+            d = dict(ID=site, Name=label, Nexus_File='data')
             self.add_obj('ParameterTable', d, md.get(site, {}), rename=dict(Label='Name'))
-        
+        self.add_obj(
+            'MediaTable',
+            dict(ID='data', Media_Type='text/plain', Download_URL='file:///data.nex'))
+
         missing = [t for t in nex.data.taxa if t not in self._lids]
         assert not len(missing), "Taxa in nexus not in taxa.csv: %r" % missing
 
         missing = [t for t in nex.data.matrix if t not in self._lids]
         assert not len(missing), "Taxa in nexus not in taxa.csv: %r" % missing
-        
+
         nex.write_to_file(self.cldf_spec.dir / 'data.nex')
         self.cldf.add_provenance(
             wasDerivedFrom={

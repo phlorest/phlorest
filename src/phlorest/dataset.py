@@ -50,10 +50,10 @@ class PhlorestDir(DataDir):
                    preprocessor=lambda s: s):
         """
         Reads trees from `path` and transforms them as required.
-        
+
         Processing order:
             burnin -> sample -> strip_annotation -> remove_rate -> detranslate
-        
+
         :param path: path to nexus file.
         :param text: nexus content in text.
         :param detranslate: return trees with translate blocks removed (default=False).
@@ -64,7 +64,6 @@ class PhlorestDir(DataDir):
         :param preprocessor: function to preprocess nexus text.
         :return:
         """
-
         nex = self.read_nexus(path=path, text=text, preprocessor=preprocessor)
         # remove burn-in first
         if burnin:
@@ -104,12 +103,11 @@ class PhlorestDir(DataDir):
         node), separating the branch length. The newick package can't handle
         these. This method removes the simpler annotation after the ":", keeping
         the branch annotations.
-        
+
         :param text: nexus content in text.
         :return: str
         """
         return re.sub(r':\[&rate=[0-9]*\.?[0-9]*]', ':', text)
-        
 
 
 class Dataset(cldfbench.Dataset):
