@@ -23,7 +23,7 @@ from cldfbench.catalogs import BUILTIN_CATALOGS
 import termcolor
 
 
-def main(args=None, catch_all=False, parsed_args=None, log=None):
+def main(args=None, catch_all=False, parsed_args=None, log=None):  # pragma: no cover
     parser, subparsers = get_parser_and_subparsers(phlorest.__name__)
 
     # We add a "hidden" option to turn-off config file reading in tests:

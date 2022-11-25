@@ -12,9 +12,10 @@ import nexus
 from nexus.tools import delete_trees, sample_trees, strip_comments_in_trees
 from pyglottolog.languoids import Glottocode
 from clldutils.path import TemporaryDirectory
+from pycldf.trees import TreeTable
+from cldfviz.tree import render
 
 from .metadata import Metadata
-from .render import render_summary_tree
 from .cldfwriter import CLDFWriter
 
 
@@ -129,7 +130,30 @@ class Dataset(cldfbench.Dataset):
             glang = args.glottolog.api.languoid(self.metadata.family)
             self.metadata.family = '{} [{}]'.format(glang.name, glang.id)
         cldfbench.Dataset._cmd_makecldf(self, args)
-        render_summary_tree(self.cldf_reader(), self.dir / 'summary_tree.svg')
+
+        cldf = self.cldf_reader()
+        for tree in TreeTable(cldf):
+            if tree.tree_type == 'summary':
+                legend = "Summary tree"
+                if cldf.properties.get('dc:subject', {}).get('analysis'):
+                    title = cldf.properties['dc:subject']['analysis'].title()
+                    legend += ' of a {} analysis'.format(title)
+                if cldf.properties.get('dc:subject', {}).get('family'):
+                    family = cldf.properties['dc:subject']['family']
+                    legend += ' of the {} family'.format(family)
+                if tree.tree_branch_length_unit:
+                    legend += ' with branches in {}'.format(tree.tree_branch_length_unit)
+
+                return render(
+                    tree,
+                    self.dir / 'summary_tree.svg',
+                    glottolog_mapping={
+                        r['ID']: (r['Glottocode'], r.get('Glottolog_Name'))
+                        for r in cldf['LanguageTable'] if r['Glottocode']},
+                    legend=legend,
+                    width=1000,
+                    with_glottolog_links=True
+                )
 
     def init(self, args):
         args.writer.add_taxa(self.taxa, args.glottolog.api, args.log)
