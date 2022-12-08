@@ -1,5 +1,6 @@
 import copy
 import typing
+import zipfile
 import functools
 
 import newick
@@ -40,10 +41,11 @@ def rescale_to_years(nex, orig_scaling, log=None):
 
 
 class NexusFile:
-    def __init__(self, path):
+    def __init__(self, path, zipped=False):
         self.path = path
         self._trees = []
         self.scaling = None
+        self.zipped = zipped
 
     def append(self, tree: NexusTree, tid, lids, scaling, log):
         with_lids = bool(lids)
@@ -86,3 +88,11 @@ class NexusFile:
                 nex.trees.append(NexusTree.from_newick(
                     tree.newick_string, name=tree.name or 'tree{}'.format(i), rooted=tree.rooted))
             nex.write_to_file(self.path)
+            if self.zipped:
+                with zipfile.ZipFile(
+                    self.path.parent / (self.path.name + '.zip'),
+                    'w',
+                    compression=zipfile.ZIP_DEFLATED
+                ) as zf:
+                    zf.write(self.path, self.path.name)
+                self.path.unlink()

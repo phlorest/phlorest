@@ -12,9 +12,10 @@ import nexus
 from nexus.tools import delete_trees, sample_trees, strip_comments_in_trees
 from pyglottolog.languoids import Glottocode
 from clldutils.path import TemporaryDirectory
+from pycldf.trees import TreeTable
+from cldfviz.tree import render
 
 from .metadata import Metadata
-from .render import render_summary_tree
 from .cldfwriter import CLDFWriter
 
 
@@ -50,10 +51,10 @@ class PhlorestDir(DataDir):
                    preprocessor=lambda s: s):
         """
         Reads trees from `path` and transforms them as required.
-        
+
         Processing order:
             burnin -> sample -> strip_annotation -> remove_rate -> detranslate
-        
+
         :param path: path to nexus file.
         :param text: nexus content in text.
         :param detranslate: return trees with translate blocks removed (default=False).
@@ -64,7 +65,6 @@ class PhlorestDir(DataDir):
         :param preprocessor: function to preprocess nexus text.
         :return:
         """
-
         nex = self.read_nexus(path=path, text=text, preprocessor=preprocessor)
         # remove burn-in first
         if burnin:
@@ -104,12 +104,11 @@ class PhlorestDir(DataDir):
         node), separating the branch length. The newick package can't handle
         these. This method removes the simpler annotation after the ":", keeping
         the branch annotations.
-        
+
         :param text: nexus content in text.
         :return: str
         """
         return re.sub(r':\[&rate=[0-9]*\.?[0-9]*]', ':', text)
-        
 
 
 class Dataset(cldfbench.Dataset):
@@ -131,7 +130,30 @@ class Dataset(cldfbench.Dataset):
             glang = args.glottolog.api.languoid(self.metadata.family)
             self.metadata.family = '{} [{}]'.format(glang.name, glang.id)
         cldfbench.Dataset._cmd_makecldf(self, args)
-        render_summary_tree(self.cldf_reader(), self.dir / 'summary_tree.svg')
+
+        cldf = self.cldf_reader()
+        for tree in TreeTable(cldf):
+            if tree.tree_type == 'summary':
+                legend = "Summary tree"
+                if cldf.properties.get('dc:subject', {}).get('analysis'):
+                    title = cldf.properties['dc:subject']['analysis'].title()
+                    legend += ' of a {} analysis'.format(title)
+                if cldf.properties.get('dc:subject', {}).get('family'):
+                    family = cldf.properties['dc:subject']['family']
+                    legend += ' of the {} family'.format(family)
+                if tree.tree_branch_length_unit:
+                    legend += ' with branches in {}'.format(tree.tree_branch_length_unit)
+
+                return render(
+                    tree,
+                    self.dir / 'summary_tree.svg',
+                    glottolog_mapping={
+                        r['ID']: (r['Glottocode'], r.get('Glottolog_Name'))
+                        for r in cldf['LanguageTable'] if r['Glottocode']},
+                    legend=legend,
+                    width=1000,
+                    with_glottolog_links=True
+                )
 
     def init(self, args):
         args.writer.add_taxa(self.taxa, args.glottolog.api, args.log)
