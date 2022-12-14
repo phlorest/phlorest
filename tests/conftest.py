@@ -22,13 +22,17 @@ def glottolog():
 
 
 @pytest.fixture
-def dataset(tmp_path, repos):
+def tmp_repos(repos, tmp_path):
+    shutil.copytree(repos, tmp_path / 'repos')
+    return tmp_path / 'repos'
+
+
+@pytest.fixture
+def dataset(tmp_repos):
     from phlorest import Dataset
 
-    shutil.copytree(repos, tmp_path / 'repos')
-
     class DS(Dataset):
-        dir = tmp_path / 'repos'
+        dir = tmp_repos
         id = 'phy'
 
         def cmd_makecldf(self, args):

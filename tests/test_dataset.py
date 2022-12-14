@@ -79,7 +79,7 @@ def test_Dataset_sample(dataset):
 def test_PhlorestDir_read_trees(dataset):
     tfile = dataset.raw_dir / 'posterior.trees'
     # no args
-    assert len(dataset.raw_dir.read_trees(tfile)) == 3
+    assert len(dataset.raw_dir.read_trees(tfile, remove_rate=True)) == 3
     
     # sample
     assert len(dataset.raw_dir.read_trees(tfile, sample=2)) == 2
