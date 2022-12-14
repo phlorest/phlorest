@@ -44,6 +44,7 @@ def test_Dataset_run_treeannotator(dataset, mocker, repos):
     def annotate(args, **kw):
         shutil.copy(repos / 'raw' / 'nexus.trees', args[-1])
 
+    mocker.patch('phlorest.dataset.ensure_cmd', mocker.Mock(return_value='cmd'))
     mocker.patch('phlorest.dataset.shutil', mocker.Mock())
     mocker.patch('phlorest.dataset.subprocess', mocker.Mock(check_call=annotate))
     _ = dataset.run_treeannotator('cmd', 'in')
