@@ -41,11 +41,6 @@ def test_Dataset(dataset, cldfwriter, mocker, glottolog, tmp_path):
 
 
 def test_Dataset_run_treeannotator(dataset, mocker, repos):
-    mocker.patch(
-        'phlorest.dataset.shutil', mocker.Mock(which=mocker.Mock(return_value=None)))
-    with pytest.raises(ValueError):
-        dataset.run_treeannotator('', '')
-
     def annotate(args, **kw):
         shutil.copy(repos / 'raw' / 'nexus.trees', args[-1])
 

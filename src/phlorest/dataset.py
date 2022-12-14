@@ -9,9 +9,10 @@ import subprocess
 import cldfbench
 from cldfbench.datadir import DataDir
 import nexus
+from nexus.handlers.tree import Tree
 from nexus.tools import delete_trees, sample_trees, strip_comments_in_trees
 from pyglottolog.languoids import Glottocode
-from clldutils.path import TemporaryDirectory
+from clldutils.path import TemporaryDirectory, ensure_cmd
 from pycldf.trees import TreeTable
 from cldfviz.tree import render
 
@@ -20,18 +21,22 @@ from .cldfwriter import CLDFWriter
 
 
 class PhlorestDir(DataDir):
+    """
+    Enhanced `DataDir`, adding methods to access phylogenetic data.
+    """
     def read_nexus(self,
-                   path: typing.Union[str, pathlib.Path] = None,
-                   text: str = None,
-                   remove_rate=False,
-                   encoding='utf-8-sig',
-                   preprocessor=lambda s: s):
+                   path: typing.Optional[typing.Union[str, pathlib.Path]] = None,
+                   text: typing.Optional[str] = None,
+                   remove_rate: bool = False,
+                   encoding: str = 'utf-8-sig',
+                   preprocessor: typing.Callable[[str], str] = lambda s: s) -> nexus.NexusReader:
         """
-        :param path: path to nexus file.
+        :param path: path to nexus file (or `None`).
+        :param text: text content of a nexus file.
         :param remove_rate: Some trees have annotations before *and* after the colon, separating \
         the branch length. The newick package can't handle these. So we can remove the simpler \
         annotation after the ":".
-        :return:
+        :return: Initialized `NexusReader` object.
         """
         assert (path or text) and not (path and text), 'Must pass either path or text'
         if not text:
@@ -48,7 +53,7 @@ class PhlorestDir(DataDir):
                    sample: int = 0,
                    remove_rate: bool = False,
                    strip_annotation: bool = False,
-                   preprocessor=lambda s: s):
+                   preprocessor: typing.Callable[[str], str] = lambda s: s) -> typing.List[Tree]:
         """
         Reads trees from `path` and transforms them as required.
 
@@ -91,14 +96,18 @@ class PhlorestDir(DataDir):
                   sample: int = 0,
                   remove_rate: bool = False,
                   strip_annotation: bool = False,
-                  preprocessor=lambda s: s):
+                  preprocessor=lambda s: s) -> Tree:
         return self.read_trees(
-            path=path, text=text, detranslate=detranslate,
-            burnin=burnin, sample=sample,
+            path=path,
+            text=text,
+            detranslate=detranslate,
+            burnin=burnin,
+            sample=sample,
+            remove_rate=remove_rate,
             strip_annotation=strip_annotation,
             preprocessor=preprocessor)[0]
 
-    def remove_rate(self, text: str):
+    def remove_rate(self, text: str) -> Tree:
         """
         Some trees have annotations before *and* after the colon (i.e. on the
         node), separating the branch length. The newick package can't handle
@@ -108,10 +117,19 @@ class PhlorestDir(DataDir):
         :param text: nexus content in text.
         :return: str
         """
-        return re.sub(r':\[&rate=[0-9]*\.?[0-9]*]', ':', text)
+        return Tree(re.sub(r':\[&rate=[0-9]*\.?[0-9]*]', ':', text))
 
 
 class Dataset(cldfbench.Dataset):
+    """
+    An augmented `cldfbench.Dataset`
+
+    - swapping in `PhlorestDir` as `DataDir` implementation for `raw`
+    - swapping in a custom CLDFWriter implementation `phorest.cldfwriter.CLDFWriter`
+    - adding methods to be called in implementations of `cmd_makecldf` for simpler manipulation of \
+      phylogenetic data,
+    - enhancing README.md by adding an SVG plot of the summary tree.
+    """
     metadata_cls = Metadata
     datadir_cls = PhlorestDir
 
@@ -156,6 +174,10 @@ class Dataset(cldfbench.Dataset):
                 )
 
     def init(self, args):
+        """
+        Create rows in LanguageTable according to `etc/taxa.csv` and add sources from
+        `raw/source.bib`.
+        """
         args.writer.add_taxa(self.taxa, args.glottolog.api, args.log)
         if self.raw_dir.joinpath('source.bib').exists():
             args.writer.cldf.sources.add(
@@ -174,16 +196,14 @@ class Dataset(cldfbench.Dataset):
         return []
 
     @property
-    def taxa(self):
+    def taxa(self) -> typing.List[dict]:
         return self._read_from_etc('taxa.csv')
 
     @property
-    def characters(self):
+    def characters(self) -> typing.List[dict]:
         return self._read_from_etc('characters.csv')
 
     def run_treeannotator(self, cmd, input):
-        if shutil.which('treeannotator') is None:
-            raise ValueError('The treeannotator executable must be installed and in PATH')
         with TemporaryDirectory() as d:
             in_ = d / 'in.nex'
             if isinstance(input, str):
@@ -192,7 +212,7 @@ class Dataset(cldfbench.Dataset):
                 shutil.copy(input, in_)
             out = d / 'out.nex'
             subprocess.check_call(
-                ['treeannotator'] + shlex.split(cmd) + [str(in_), str(out)],
+                [ensure_cmd('treeannotator')] + shlex.split(cmd) + [str(in_), str(out)],
                 stderr=subprocess.DEVNULL,
             )
             return nexus.NexusReader.from_string(out.read_text(encoding='utf8'))
@@ -200,7 +220,7 @@ class Dataset(cldfbench.Dataset):
     def run_rscript(self, script, output_fname):
         with TemporaryDirectory() as d:
             d.joinpath('script.r').write_text(script, encoding='utf8')
-            subprocess.check_call(['Rscript', str(d / 'script.r')], cwd=d)
+            subprocess.check_call([ensure_cmd('Rscript'), str(d / 'script.r')], cwd=d)
             return d.joinpath(output_fname).read_text(encoding='utf8')
 
     def remove_burnin(self, input, amount, as_nexus=False):

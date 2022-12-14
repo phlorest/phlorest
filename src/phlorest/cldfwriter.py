@@ -13,6 +13,9 @@ from .beast import BeastFile
 
 
 class CLDFWriter(cldfbench.CLDFWriter):
+    """
+    A CLDF writer that knows how to add phylogentic data.
+    """
     def __enter__(self):
         self._lids = set()
         self.summary = NexusFile(self.cldf_spec.dir / 'summary.trees')
@@ -37,6 +40,9 @@ class CLDFWriter(cldfbench.CLDFWriter):
         self.cldf.add_component('MediaTable')
 
     def add_columns(self, table, obj, log, exclude=None):
+        """
+        Wraps `pycldf.Dataset.add_columns`, adding some checking.
+        """
         existing = [c.name for c in self.cldf[table].tableSchema.columns]
         exclude = exclude or []
         new = []
@@ -51,7 +57,14 @@ class CLDFWriter(cldfbench.CLDFWriter):
 
         self.cldf.add_columns(table, *new)
 
-    def add_obj(self, table, d, row=None, rename=None):
+    def add_obj(self,
+                table: str,
+                d: dict,
+                row: typing.Optional[dict] = None,
+                rename: typing.Optional[typing.Dict[str, str]] = None):
+        """
+        Merge data from `row` into `d` and add the resulting `dict` to table `table`.
+        """
         rename = rename or {}
         for k, v in (row or {}).items():
             k = rename.get(k, k)
@@ -110,6 +123,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
                       log,
                       source=None,
                       verbose=False):
+        i = 0
         for i, tree in (
                 tqdm.tqdm(enumerate(trees, start=1), total=len(trees))
                 if verbose else enumerate(trees, start=1)):
