@@ -34,6 +34,7 @@ def test_PhlorestDir_remove_rate(repos):
 
 @pytest.mark.noci
 def test_Dataset(dataset, cldfwriter, mocker, glottolog, tmp_path):
+    assert dataset.metadata.title == "Phlorest phylogeny derived from the author 2021 'The name'"
     args = argparse.Namespace(
         writer=cldfwriter, glottolog=mocker.Mock(api=glottolog), log=mocker.Mock())
     dataset._cmd_makecldf(args)

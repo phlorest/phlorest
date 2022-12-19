@@ -50,9 +50,9 @@ class Metadata(cldfbench.Metadata):
 
         ref = self.author or ''
         if self.year:
-            ref += ' {}'.format(self.year).strip()
+            ref += ' {}'.format(self.year)
         if self.name:
-            ref += " '{}'".format(self.name).strip()
+            ref += " '{}'".format(self.name.strip())
         if ref:
             ref = 'derived from {}'.format(ref)
         else:
