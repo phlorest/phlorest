@@ -52,10 +52,10 @@ The CLDF writer which can be accessed as `args.writer` within `cmd_makecldf` is 
 dataset. At least a summary is needed to make a dataset valid. Adding one looks as follows
 
 ```python
-args.writer.add_summary(
-    self.raw_dir.read_tree(...),
-    self.metadata,
-    args.log)
+    args.writer.add_summary(
+        self.raw_dir.read_tree(...),
+        self.metadata,
+        args.log)
 ```
 
 
@@ -64,4 +64,9 @@ args.writer.add_summary(
 With `cmd_makecldf` implemented, CLDF creation can be triggered running
 ```shell
 cldfbench makecldf cldfbench_<id>.py
+```
+
+The resulting CLDF dataset can be validated running
+```shell
+pytest
 ```
