@@ -41,7 +41,7 @@ git push --tags
 
 - Change version for the next release cycle, i.e. incrementing and adding .dev0
 
-  - `setup.py`
+  - `setup.cfg`
   - `src/phlorest/__init__.py`
 
 - Commit/push the version change:
