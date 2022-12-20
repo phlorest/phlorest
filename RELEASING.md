@@ -13,7 +13,7 @@ flake8 src
 ```
 
 - Update the version number, by removing the trailing `.dev0` in:
-  - `setup.py`
+  - `setup.cfg`
   - `src/phlorest/__init__.py`
 
 - Create the release commit:
@@ -29,7 +29,7 @@ git tag -a v<VERSION> -m"<VERSION> release"
 - Release to PyPI: 
 ```shell
 rm dist/*
-python setup.py sdist bdist_wheel
+python -m build -n
 twine upload dist/*
 ```
 
