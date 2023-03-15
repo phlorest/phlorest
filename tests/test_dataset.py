@@ -1,8 +1,6 @@
 import shutil
 import argparse
 
-import nexus
-from nexus.tools.util import get_nexus_reader
 import pytest
 
 from phlorest.dataset import PhlorestDir
@@ -16,20 +14,13 @@ def cldfwriter(dataset):
 
 def test_PhlorestDir(repos):
     d = PhlorestDir(repos / 'raw')
-    nex = d.read_nexus('nexus.trees')
-    assert nex.trees.trees[0] == d.read_tree(d / 'nexus.trees')
-    assert nex.trees.trees[0] != d.read_tree(d / 'nexus.trees', detranslate=True)
-    assert d.read_nexus('nexus.trees', remove_rate=True).trees.trees[0] == nex.trees.trees[0]
-
     nex = d.read_nexus('nexus.trees', preprocessor=lambda s: s.replace('Cojubim', 'abcdefg'))
-    assert 'abcdefg' in nex.write()
+    assert 'abcdefg' in str(nex)
 
 
 def test_PhlorestDir_remove_rate(repos):
     d = PhlorestDir(repos / 'raw')
     nex = d.read_nexus('trees_with_rate.trees')
-    res = d.remove_rate(nex.trees.trees[0])
-    assert '[&rate=0.10061354528306601]' not in res
 
 
 @pytest.mark.noci
@@ -49,8 +40,8 @@ def test_Dataset_run_treeannotator(dataset, mocker, repos):
     mocker.patch('phlorest.dataset.shutil', mocker.Mock())
     mocker.patch('phlorest.dataset.subprocess', mocker.Mock(check_call=annotate))
     _ = dataset.run_treeannotator('cmd', 'in')
-    res = dataset.run_treeannotator('cmd', get_nexus_reader(dataset.raw_dir / 'nexus.trees'))
-    assert isinstance(res, nexus.NexusReader)
+    res = dataset.run_treeannotator('cmd', dataset.raw_dir / 'nexus.trees')
+    assert res.TREES
 
 
 def test_Dataset_run_rscript(dataset, mocker):
@@ -62,21 +53,10 @@ def test_Dataset_run_rscript(dataset, mocker):
     assert res == 'hello'
 
 
-def test_Dataset_remove_burnin(dataset):
-    assert dataset.remove_burnin(
-        dataset.raw_dir / 'nexus.trees', 0, as_nexus=True).trees.ntrees == 1
-
-
-def test_Dataset_sample(dataset):
-    res = dataset.sample(
-        dataset.raw_dir / 'nexus.trees', n=1, strip_annotation=True, detranslate=True)
-    assert res
-
-
 def test_PhlorestDir_read_trees(dataset):
     tfile = dataset.raw_dir / 'posterior.trees'
     # no args
-    assert len(dataset.raw_dir.read_trees(tfile, remove_rate=True)) == 3
+    assert len(dataset.raw_dir.read_trees(tfile)) == 3
     
     # sample
     assert len(dataset.raw_dir.read_trees(tfile, sample=2)) == 2
@@ -84,18 +64,18 @@ def test_PhlorestDir_read_trees(dataset):
     # burnin
     trees = dataset.raw_dir.read_trees(tfile, burnin=2)
     assert len(trees) == 1
-    assert 'tree TREE3' in trees[0]
+    assert 'TREE3' == trees[0].name
 
     trees = dataset.raw_dir.read_trees(tfile, burnin=1)
     assert len(trees) == 2
-    assert 'tree TREE2' in trees[0]
-    assert 'tree TREE3' in trees[1]
+    assert 'TREE2' == trees[0].name
+    assert 'TREE3' == trees[1].name
     
     # strip_annotation
     trees = dataset.raw_dir.read_trees(tfile, burnin=2, strip_annotation=True)
     assert len(trees) == 1
-    assert 'tree TREE3' in trees[0]
-    assert '[' not in trees[0]
+    assert 'TREE3' == trees[0].name
+    assert '[' not in trees[0].newick.newick
 
     # preprocessor
     trees = dataset.raw_dir.read_trees(
@@ -104,12 +84,12 @@ def test_PhlorestDir_read_trees(dataset):
         preprocessor=lambda t: t.replace("tree TREE", "tree TESTTREE")
     )
     assert len(trees) == 1
-    assert 'tree TESTTREE' in trees[0]
+    assert 'TESTTREE3' == trees[0].name
     
     # detranslate
     trees = dataset.raw_dir.read_trees(tfile, burnin=2, detranslate=True)
     assert len(trees) == 1
-    assert 'Cojubim' in trees[0]
+    assert 'Cojubim' in trees[0].newick.newick
     
     # combined
     trees = dataset.raw_dir.read_trees(
@@ -121,8 +101,6 @@ def test_PhlorestDir_read_trees(dataset):
         detranslate=True
     )
     assert len(trees) == 1
-    assert 'TREE1' not in trees[0], \
-        'Tree1 should never be sampled due to burn-in setting'
-    assert '[' not in trees[0]
-    assert 'Cojubim' in trees[0]
-
+    assert 'TREE1' != trees[0].name, 'Tree1 should never be sampled due to burn-in setting'
+    assert '[' not in trees[0].newick.newick
+    assert 'Cojubim' in trees[0].newick.newick

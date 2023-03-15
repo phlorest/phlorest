@@ -1,15 +1,16 @@
 import typing
+import pathlib
 
 import cldfbench
 
+import newick
 import tqdm
-import nexus
-from nexus.handlers.tree import Tree as NexusTree
 from pycldf.terms import TERMS
+from commonnexus import Nexus
 
+from .beast import BeastFile
 from .metadata import Metadata
 from .nexuslib import NexusFile
-from .beast import BeastFile
 
 
 class CLDFWriter(cldfbench.CLDFWriter):
@@ -74,14 +75,15 @@ class CLDFWriter(cldfbench.CLDFWriter):
         self.objects[table].append(d)
 
     def add_tree(self,
-                 tree: NexusTree,
+                 tree: typing.Union[str, newick.Node],
                  nex: NexusFile,
                  tid: str,
                  metadata: Metadata,
                  log,
                  type_,
-                 source=None):
-        nex.append(tree, tid, self._lids, metadata.scaling, log)
+                 source=None,
+                 rooted: typing.Optional[bool] = None):
+        nex.append(tree, tid, self._lids, metadata.scaling, log, rooted=rooted)
         if source is None:
             bibkeys = list(self.cldf.sources.keys())
             if len(bibkeys) == 1:
@@ -102,7 +104,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
             ID=tid,
             Name=tid,
             Media_ID=nex.path.stem,
-            Tree_Is_Rooted=tree.rooted,
+            Tree_Is_Rooted=rooted,
             Tree_Type=type_,
             Description=metadata.analysis,
             Tree_Branch_Length_Unit=None if nex.scaling == 'none' else nex.scaling,
@@ -110,19 +112,21 @@ class CLDFWriter(cldfbench.CLDFWriter):
         ))
 
     def add_summary(self,
-                    tree: NexusTree,
+                    tree: typing.Union[str, newick.Node],
                     metadata: Metadata,
                     log,
-                    source=None):
-        self.add_tree(tree, self.summary, 'summary', metadata, log, 'summary', source=source)
+                    source=None,
+                    rooted=None):
+        self.add_tree(tree, self.summary, 'summary', metadata, log, 'summary', source=source, rooted=rooted)
         log.info("added summary tree")
 
     def add_posterior(self,
-                      trees: typing.List[NexusTree],
+                      trees: typing.List[typing.Union[str, newick.Node]],
                       metadata: Metadata,
                       log,
                       source=None,
-                      verbose=False):
+                      verbose=False,
+                      rooted=None):
         i = 0
         for i, tree in (
                 tqdm.tqdm(enumerate(trees, start=1), total=len(trees))
@@ -134,28 +138,23 @@ class CLDFWriter(cldfbench.CLDFWriter):
                 metadata,
                 log,
                 'sample',
-                source=source)
+                source=source,
+                rooted=rooted)
         log.info("added posterior trees (n=%d)" % i)
 
     def add_data(self, input, characters, log):
         if isinstance(input, BeastFile):
-            nex, chars = input.nexus_and_characters()
+            nex = input.nexus()
+        elif isinstance(input, pathlib.Path):
+            nex = Nexus.from_file(input)
+        elif isinstance(input, str):
+            nex = Nexus(input)
         else:
-            nex = input if isinstance(input, (nexus.NexusReader, nexus.NexusWriter)) \
-                else nexus.NexusReader(input)
-            chars = sorted(nex.data.charlabels.items())
-
-        if not chars:
-            chars = [
-                (i + 1, 'Site {}'.format(i + 1))
-                for i, _ in enumerate(list(nex.data.matrix.values())[0])]
-
-        if chars[0][0] == 0:
-            # A zero-based index. Switch to 1-based:
-            chars = [(k + 1, v) for k, v in chars]
+            nex = input
+        assert isinstance(nex, Nexus)
+        charlabels, _ = nex.characters.get_charstatelabels()
 
         md = {int(row.pop('Site')): row for row in characters}
-        assert all(len(chars) == len(d) for d in nex.data.matrix.values()), str(len(chars))
         t = self.cldf.add_component(
             'ParameterTable',
             {
@@ -175,20 +174,16 @@ class CLDFWriter(cldfbench.CLDFWriter):
                 'ParameterTable', list(md.values())[0], log, exclude=['Label'])
         self.cldf['ParameterTable', 'ID'].common_props['dc:description'] = \
             "Sequence index of the site in the corresponding Nexus file."
-        for site, label in chars:
+        for site, label in charlabels.items():
             d = dict(ID=site, Name=label, Nexus_File='data')
             self.add_obj('ParameterTable', d, md.get(site, {}), rename=dict(Label='Name'))
         self.add_obj(
             'MediaTable',
             dict(ID='data', Media_Type='text/plain', Download_URL='file:///data.nex'))
 
-        missing = [t for t in nex.data.taxa if t not in self._lids]
-        assert not len(missing), "Taxa in nexus not in taxa.csv: %r" % missing
+        assert all(t in self._lids for t in nex.taxa), "Taxa in nexus not in taxa.csv: {}".format([t for t in nex.taxa if t not in self._lids])
 
-        missing = [t for t in nex.data.matrix if t not in self._lids]
-        assert not len(missing), "Taxa in nexus not in taxa.csv: %r" % missing
-
-        nex.write_to_file(self.cldf_spec.dir / 'data.nex')
+        nex.to_file(self.cldf_spec.dir / 'data.nex')
         self.cldf.add_provenance(
             wasDerivedFrom={
                 "rdf:about": "data.nex",
@@ -197,7 +192,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
                 'dc:format': 'https://en.wikipedia.org/wiki/Nexus_file',
             }
         )
-        log.info("added data nexus (characters=%d)" % len(chars))
+        log.info("added data nexus (characters=%d)" % len(charlabels))
 
     def add_taxa(self, taxa, glottolog, log):
         glangs = {lg.id: lg for lg in glottolog.languoids()}

@@ -1,21 +1,19 @@
-import re
 import shlex
-import random
 import shutil
+import random
 import typing
 import pathlib
 import subprocess
 
 import cldfbench
 from cldfbench.datadir import DataDir
-import nexus
-from nexus.handlers.tree import Tree
-from nexus.tools import delete_trees, sample_trees, strip_comments_in_trees
 from pyglottolog.languoids import Glottocode
 from clldutils.path import TemporaryDirectory, ensure_cmd
 from pycldf.trees import TreeTable
 from cldfviz.tree import render
+from commonnexus import Nexus
 
+from .nexuslib import Tree
 from .metadata import Metadata
 from .cldfwriter import CLDFWriter
 
@@ -29,21 +27,21 @@ class PhlorestDir(DataDir):
                    text: typing.Optional[str] = None,
                    remove_rate: bool = False,
                    encoding: str = 'utf-8-sig',
-                   preprocessor: typing.Callable[[str], str] = lambda s: s) -> nexus.NexusReader:
+                   preprocessor: typing.Callable[[str], str] = lambda s: s) -> Nexus:
         """
         :param path: path to nexus file (or `None`).
         :param text: text content of a nexus file.
         :param remove_rate: Some trees have annotations before *and* after the colon, separating \
         the branch length. The newick package can't handle these. So we can remove the simpler \
         annotation after the ":".
-        :return: Initialized `NexusReader` object.
+        :return: Initialized `Nexus` object.
         """
         assert (path or text) and not (path and text), 'Must pass either path or text'
         if not text:
             text = self.read(path, encoding=encoding)
         if remove_rate:
             text = self.remove_rate(text)
-        return nexus.NexusReader.from_string(preprocessor(text))
+        return Nexus(preprocessor(text))
 
     def read_trees(self,
                    path: typing.Union[str, pathlib.Path] = None,
@@ -51,7 +49,6 @@ class PhlorestDir(DataDir):
                    detranslate: bool = False,
                    burnin: int = 0,
                    sample: int = 0,
-                   remove_rate: bool = False,
                    strip_annotation: bool = False,
                    preprocessor: typing.Callable[[str], str] = lambda s: s) -> typing.List[Tree]:
         """
@@ -71,22 +68,26 @@ class PhlorestDir(DataDir):
         :return:
         """
         nex = self.read_nexus(path=path, text=text, preprocessor=preprocessor)
+        trees = nex.TREES.trees
         # remove burn-in first
         if burnin:
-            nex = delete_trees(nex, list(range(burnin + 1)))
+            trees = trees[burnin:]
         # ..then sample if needed
-        if sample and len(nex.trees.trees) > sample:
-            nex = sample_trees(nex, sample)
-        # remove comments if asked
-        if strip_annotation:
-            nex = strip_comments_in_trees(nex)
-        # remove rates if asked
-        if remove_rate:
-            nex.trees.trees = [self.remove_rate(t) for t in nex.trees.trees]
+        if sample and len(trees) > sample:
+            trees = random.sample(trees, sample)
+
+        trees = [Tree(tree.name, tree.newick, tree.rooted) for tree in trees]
         # ...then detranslate.
         if detranslate:
-            nex.trees.detranslate()
-        return nex.trees.trees
+            for tree in trees:
+                tree.newick = nex.TREES.translate(tree.newick)
+
+        # remove comments if asked
+        if strip_annotation:
+            for tree in trees:
+                tree.newick.strip_comments()
+
+        return trees
 
     def read_tree(self,
                   path: typing.Union[str, pathlib.Path] = None,
@@ -103,21 +104,8 @@ class PhlorestDir(DataDir):
             detranslate=detranslate,
             burnin=burnin,
             sample=sample,
-            remove_rate=remove_rate,
             strip_annotation=strip_annotation,
             preprocessor=preprocessor)[0]
-
-    def remove_rate(self, text: str) -> Tree:
-        """
-        Some trees have annotations before *and* after the colon (i.e. on the
-        node), separating the branch length. The newick package can't handle
-        these. This method removes the simpler annotation after the ":", keeping
-        the branch annotations.
-
-        :param text: nexus content in text.
-        :return: str
-        """
-        return Tree(re.sub(r':\[&rate=[0-9]*\.?[0-9]*]', ':', text))
 
 
 class Dataset(cldfbench.Dataset):
@@ -203,7 +191,8 @@ class Dataset(cldfbench.Dataset):
     def characters(self) -> typing.List[dict]:
         return self._read_from_etc('characters.csv')
 
-    def run_treeannotator(self, cmd, input):
+    @staticmethod
+    def run_treeannotator(cmd, input: typing.Union[str, pathlib.Path]) -> Nexus:
         with TemporaryDirectory() as d:
             in_ = d / 'in.nex'
             if isinstance(input, str):
@@ -215,29 +204,11 @@ class Dataset(cldfbench.Dataset):
                 [ensure_cmd('treeannotator')] + shlex.split(cmd) + [str(in_), str(out)],
                 stderr=subprocess.DEVNULL,
             )
-            return nexus.NexusReader.from_string(out.read_text(encoding='utf8'))
+            return Nexus(out.read_text(encoding='utf8'))
 
-    def run_rscript(self, script, output_fname):
+    @staticmethod
+    def run_rscript(script, output_fname):
         with TemporaryDirectory() as d:
             d.joinpath('script.r').write_text(script, encoding='utf8')
             subprocess.check_call([ensure_cmd('Rscript'), str(d / 'script.r')], cwd=d)
             return d.joinpath(output_fname).read_text(encoding='utf8')
-
-    def remove_burnin(self, input, amount, as_nexus=False):
-        res = delete_trees(input, list(range(amount + 1)))
-        return res if as_nexus else res.write()
-
-    def sample(self,
-               input,
-               seed=12345,
-               detranslate=False,
-               as_nexus=False,
-               n=1000,
-               strip_annotation=False):
-        random.seed(seed)
-        res = sample_trees(input, n)
-        if strip_annotation:
-            res = strip_comments_in_trees(res)
-        if detranslate:
-            res.trees.detranslate()
-        return res if as_nexus else res.write()
