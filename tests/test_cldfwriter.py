@@ -29,3 +29,23 @@ def test_CLDFWriter_nexus_data(repos, tmp_path, mocker, nexus_tree, dataset, glo
         writer.add_taxa(dataset.taxa, glottolog, mocker.Mock())
         writer.add_data(repos / 'raw' / 'data.nex', [{'Site': '0', 'Gloss': 'abc'}], mocker.Mock())
         assert writer.cldf['ParameterTable', 'Gloss']
+
+
+def test_CLDFWriter_nexus_data_2(repos, tmp_path, mocker, nexus_tree, dataset, glottolog):
+    with CLDFWriter(cldf_spec=cldfbench.CLDFSpec(dir=tmp_path)) as writer:
+        writer.add_taxa(dataset.taxa, glottolog, mocker.Mock())
+        writer.add_data(
+            (repos / 'raw' / 'data.nex').read_text(encoding='utf8'),
+            [{'Site': '0', 'Gloss': 'abc'}], mocker.Mock())
+        assert writer.cldf['ParameterTable', 'Gloss']
+
+
+def test_CLDFWriter_nexus_data_3(repos, tmp_path, mocker, nexus_tree, dataset, glottolog):
+    from commonnexus import Nexus
+
+    with CLDFWriter(cldf_spec=cldfbench.CLDFSpec(dir=tmp_path)) as writer:
+        writer.add_taxa(dataset.taxa, glottolog, mocker.Mock())
+        writer.add_data(
+            Nexus((repos / 'raw' / 'data.nex').read_text(encoding='utf8')),
+            [{'Site': '0', 'Gloss': 'abc'}], mocker.Mock())
+        assert writer.cldf['ParameterTable', 'Gloss']

@@ -18,9 +18,12 @@ def test_PhlorestDir(repos):
     assert 'abcdefg' in str(nex)
 
 
-def test_PhlorestDir_remove_rate(repos):
+def test_PhlorestDir_with_rates(repos):
     d = PhlorestDir(repos / 'raw')
     nex = d.read_nexus('trees_with_rate.trees')
+    for node in nex.TREES.TREE.newick.walk():
+        if node.name == '1':
+            assert ('height' in node.properties) and ('rate' in node.properties)
 
 
 @pytest.mark.noci

@@ -1,3 +1,5 @@
+import typing
+import pathlib
 import collections
 import xml.etree.cElementTree as ElementTree
 
@@ -8,7 +10,7 @@ __all__ = ['BeastFile']
 
 
 class BeastFile:
-    def __init__(self, path, text=None):
+    def __init__(self, path: typing.Union[str, pathlib.Path], text: typing.Optional[str] = None):
         self.path = path
         self.text = text
         if self.text:
@@ -16,7 +18,14 @@ class BeastFile:
         else:
             self.xml = ElementTree.parse(str(self.path))
 
-    def nexus(self, valid_states='01?') -> Nexus:
+    def nexus(self, valid_states: str = '01?') -> Nexus:
+        """
+        Read the character data used in a BEAST file and format it as NEXUS file.
+
+        :param valid_states: String listing one-character state labels.
+        :return: A Nexus instance with a CHARACTERS block encoding the data from the BEAST file as \
+        MATRIX.
+        """
         try:  # Read the character labels.
             chars = dict(self.iter_characters())
         except (ValueError, KeyError):  # pragma: no cover

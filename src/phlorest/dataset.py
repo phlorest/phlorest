@@ -25,23 +25,15 @@ class PhlorestDir(DataDir):
     def read_nexus(self,
                    path: typing.Optional[typing.Union[str, pathlib.Path]] = None,
                    text: typing.Optional[str] = None,
-                   remove_rate: bool = False,
                    encoding: str = 'utf-8-sig',
                    preprocessor: typing.Callable[[str], str] = lambda s: s) -> Nexus:
         """
         :param path: path to nexus file (or `None`).
         :param text: text content of a nexus file.
-        :param remove_rate: Some trees have annotations before *and* after the colon, separating \
-        the branch length. The newick package can't handle these. So we can remove the simpler \
-        annotation after the ":".
         :return: Initialized `Nexus` object.
         """
         assert (path or text) and not (path and text), 'Must pass either path or text'
-        if not text:
-            text = self.read(path, encoding=encoding)
-        if remove_rate:
-            text = self.remove_rate(text)
-        return Nexus(preprocessor(text))
+        return Nexus(preprocessor(text or self.read(path, encoding=encoding)))
 
     def read_trees(self,
                    path: typing.Union[str, pathlib.Path] = None,
@@ -50,6 +42,7 @@ class PhlorestDir(DataDir):
                    burnin: int = 0,
                    sample: int = 0,
                    strip_annotation: bool = False,
+                   seed=12345,
                    preprocessor: typing.Callable[[str], str] = lambda s: s) -> typing.List[Tree]:
         """
         Reads trees from `path` and transforms them as required.
@@ -74,13 +67,17 @@ class PhlorestDir(DataDir):
             trees = trees[burnin:]
         # ..then sample if needed
         if sample and len(trees) > sample:
+            random.seed(seed)
             trees = random.sample(trees, sample)
 
         trees = [Tree(tree.name, tree.newick, tree.rooted) for tree in trees]
         # ...then detranslate.
         if detranslate:
+            # We must use a reference to the same block in order to make the translation-mapping
+            # caching work.
+            cmd = nex.TREES.translate
             for tree in trees:
-                tree.newick = nex.TREES.translate(tree.newick)
+                tree.newick = cmd(tree.newick)
 
         # remove comments if asked
         if strip_annotation:
@@ -97,6 +94,7 @@ class PhlorestDir(DataDir):
                   sample: int = 0,
                   remove_rate: bool = False,
                   strip_annotation: bool = False,
+                  seed=12345,
                   preprocessor=lambda s: s) -> Tree:
         return self.read_trees(
             path=path,
@@ -105,6 +103,7 @@ class PhlorestDir(DataDir):
             burnin=burnin,
             sample=sample,
             strip_annotation=strip_annotation,
+            seed=seed,
             preprocessor=preprocessor)[0]
 
 

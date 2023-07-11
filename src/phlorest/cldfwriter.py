@@ -2,7 +2,6 @@ import typing
 import pathlib
 
 import cldfbench
-
 import newick
 import tqdm
 from pycldf.terms import TERMS
@@ -117,7 +116,11 @@ class CLDFWriter(cldfbench.CLDFWriter):
                     log,
                     source=None,
                     rooted=None):
-        self.add_tree(tree, self.summary, 'summary', metadata, log, 'summary', source=source, rooted=rooted)
+        """
+        Add `tree` as summary tree to the dataset.
+        """
+        self.add_tree(
+            tree, self.summary, 'summary', metadata, log, 'summary', source=source, rooted=rooted)
         log.info("added summary tree")
 
     def add_posterior(self,
@@ -127,6 +130,9 @@ class CLDFWriter(cldfbench.CLDFWriter):
                       source=None,
                       verbose=False,
                       rooted=None):
+        """
+        Add `trees` as posterior sample of trees to the dataset.
+        """
         i = 0
         for i, tree in (
                 tqdm.tqdm(enumerate(trees, start=1), total=len(trees))
@@ -142,7 +148,16 @@ class CLDFWriter(cldfbench.CLDFWriter):
                 rooted=rooted)
         log.info("added posterior trees (n=%d)" % i)
 
-    def add_data(self, input, characters, log):
+    def add_data(self,
+                 input: typing.Union[BeastFile, pathlib.Path, str, Nexus],
+                 characters: typing.Iterable[typing.Dict[str, str]], log):
+        """
+        Add character data from which the tree(s) in the dataset were computed.
+
+        :param input: Character data can be read from BEAST files and NEXUS files.
+        :param characters: Character metadata, per site.
+        :param log:
+        """
         if isinstance(input, BeastFile):
             nex = input.nexus()
         elif isinstance(input, pathlib.Path):
@@ -181,7 +196,8 @@ class CLDFWriter(cldfbench.CLDFWriter):
             'MediaTable',
             dict(ID='data', Media_Type='text/plain', Download_URL='file:///data.nex'))
 
-        assert all(t in self._lids for t in nex.taxa), "Taxa in nexus not in taxa.csv: {}".format([t for t in nex.taxa if t not in self._lids])
+        assert all(t in self._lids for t in nex.taxa), "Taxa in nexus not in taxa.csv: {}".format(
+            [t for t in nex.taxa if t not in self._lids])
 
         nex.to_file(self.cldf_spec.dir / 'data.nex')
         self.cldf.add_provenance(
@@ -194,7 +210,10 @@ class CLDFWriter(cldfbench.CLDFWriter):
         )
         log.info("added data nexus (characters=%d)" % len(charlabels))
 
-    def add_taxa(self, taxa, glottolog, log):
+    def add_taxa(self,
+                 taxa: typing.List[typing.Dict[str, str]],
+                 glottolog,
+                 log):
         glangs = {lg.id: lg for lg in glottolog.languoids()}
         #
         # FIXME: add metadata from Glottolog, put in dplace-tree-specific Dataset base class.

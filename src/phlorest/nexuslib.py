@@ -23,7 +23,7 @@ def rescale_to_years(nex: Nexus, orig_scaling, log=None) -> Nexus:
     :return: The mutated `Nexus` object.
     """
     def _rescaler(factor, n):
-        n._length_formatter = lambda l: '{:.0f}'.format(l) if l else None
+        n._length_formatter = lambda lg: '{:.0f}'.format(lg) if lg else None
         if n._length:
             n.length = n.length * factor
 
