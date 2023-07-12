@@ -2,8 +2,9 @@ import shutil
 import pathlib
 
 import pytest
-from nexus.handlers.tree import Tree
 from pyglottolog import Glottolog
+
+from phlorest.nexuslib import Tree
 
 
 @pytest.fixture
@@ -13,7 +14,7 @@ def repos():
 
 @pytest.fixture
 def nexus_tree():
-    return Tree('tree name = (A:45.5,B:34.7):56.5;')
+    return Tree('name' , '(A:45.5,B:34.7):56.5;', None)
 
 
 @pytest.fixture
