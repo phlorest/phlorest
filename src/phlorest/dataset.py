@@ -1,3 +1,4 @@
+import gzip
 import shlex
 import shutil
 import random
@@ -12,6 +13,7 @@ from clldutils.path import TemporaryDirectory, ensure_cmd
 from pycldf.trees import TreeTable
 from cldfviz.tree import render
 from commonnexus import Nexus
+from commonnexus.tools.normalise import normalise as nexus_norm
 
 from .nexuslib import Tree
 from .metadata import Metadata
@@ -26,6 +28,7 @@ class PhlorestDir(DataDir):
                    path: typing.Optional[typing.Union[str, pathlib.Path]] = None,
                    text: typing.Optional[str] = None,
                    encoding: str = 'utf-8-sig',
+                   normalise: bool = False,
                    preprocessor: typing.Callable[[str], str] = lambda s: s) -> Nexus:
         """
         :param path: path to nexus file (or `None`).
@@ -33,7 +36,13 @@ class PhlorestDir(DataDir):
         :return: Initialized `Nexus` object.
         """
         assert (path or text) and not (path and text), 'Must pass either path or text'
-        return Nexus(preprocessor(text or self.read(path, encoding=encoding)))
+        if path:
+            path = self._path(path)
+            if path.suffix == '.gz':
+                with gzip.open(path, 'rt', encoding='utf8') as fp:
+                    text = fp.read()
+        res = Nexus(preprocessor(text or self.read(path, encoding=encoding)))
+        return nexus_norm(res) if normalise else res
 
     def read_trees(self,
                    path: typing.Union[str, pathlib.Path] = None,

@@ -42,7 +42,7 @@ testtree/
 ```
 
 
-### Implementng CLDF creation
+### Implementing CLDF creation
 
 Implementing CLDF creation means - as for any other `cldfbench`-curated dataset - filling in the
 `cmd_makecldf` method of the `Dataset` subclass in `cldfbench_<id>.py`.
@@ -70,3 +70,9 @@ The resulting CLDF dataset can be validated running
 ```shell
 pytest
 ```
+
+
+## Dependencies
+
+The `run_treeannotator` method of `Dataset` requires the `treeannotator` command from BEAST to be
+installed. For details on how to install `treeannotator` (and `BEAST`), see https://beast.community/index.html

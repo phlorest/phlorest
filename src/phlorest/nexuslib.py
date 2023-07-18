@@ -46,6 +46,9 @@ class Tree:
     newick: typing.Union[str, newick.Node]
     rooted: typing.Optional[bool] = None
 
+    def __str__(self):
+        return self.newick if isinstance(self.newick, str) else '{};'.format(self.newick.newick)
+
 
 class NexusFile:
     def __init__(self, path, zipped=False):

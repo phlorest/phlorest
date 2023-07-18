@@ -6,6 +6,9 @@ import newick
 import tqdm
 from pycldf.terms import TERMS
 from commonnexus import Nexus
+from commonnexus.tools.normalise import normalise
+from commonnexus.tools.matrix import CharacterMatrix
+from commonnexus.blocks.characters import Characters
 
 from .beast import BeastFile
 from .metadata import Metadata
@@ -150,7 +153,9 @@ class CLDFWriter(cldfbench.CLDFWriter):
 
     def add_data(self,
                  input: typing.Union[BeastFile, pathlib.Path, str, Nexus],
-                 characters: typing.Iterable[typing.Dict[str, str]], log):
+                 characters: typing.Iterable[typing.Dict[str, str]],
+                 log,
+                 binarise: bool = False):
         """
         Add character data from which the tree(s) in the dataset were computed.
 
@@ -199,7 +204,12 @@ class CLDFWriter(cldfbench.CLDFWriter):
         assert all(t in self._lids for t in nex.taxa), "Taxa in nexus not in taxa.csv: {}".format(
             [t for t in nex.taxa if t not in self._lids])
 
-        nex.to_file(self.cldf_spec.dir / 'data.nex')
+        if binarise:
+            _, statelabels = nex.characters.get_charstatelabels()
+            new = CharacterMatrix.binarised(nex.characters.get_matrix(), statelabels=statelabels)
+            nex.replace_block(nex.characters, Characters.from_data(new))
+
+        normalise(nex).to_file(self.cldf_spec.dir / 'data.nex')
         self.cldf.add_provenance(
             wasDerivedFrom={
                 "rdf:about": "data.nex",
