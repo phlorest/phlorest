@@ -4,5 +4,7 @@
   "author": "the author",
   "name": "The name",
   "year": 2021,
-  "family": "abcd1234"
+  "family": "abcd1234",
+  "cldf": "https://example.com",
+  "data": "https://example.com"
 }

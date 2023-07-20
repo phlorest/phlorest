@@ -24,3 +24,8 @@ def test_NexusFile(tmp_path, mocker):
             nex.append(Tree('n', '(A:1,B:2)root:3;', None), 'c', {'A', 'B'}, 'change', mocker.Mock())
     res = Nexus.from_file(tmp_path / 'test.nex')
     assert len(res.TREES.trees) == 1
+
+
+def test_Tree():
+    t = Tree('n', '(A:1,B:2)root:3;', None)
+    assert str(t) == '(A:1,B:2)root:3;'

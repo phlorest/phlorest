@@ -39,6 +39,26 @@ def test_CLDFWriter_nexus_data_2(repos, tmp_path, mocker, nexus_tree, dataset, g
             [{'Site': '0', 'Gloss': 'abc'}], mocker.Mock())
         assert writer.cldf['ParameterTable', 'Gloss']
 
+    with CLDFWriter(cldf_spec=cldfbench.CLDFSpec(dir=tmp_path)) as writer:
+        writer.add_taxa(dataset.taxa, glottolog, mocker.Mock())
+        writer.add_data(
+            """\
+#NEXUS
+
+BEGIN DATA;
+	dimensions ntax=3 nchar=1;
+	format datatype=STANDARD gap=- missing=? symbols="ABC";
+	MATRIX
+	Jeju A
+	SouthJeolla B
+	NorthJeolla C
+	;
+END;""",
+            [{'Site': '0', 'Gloss': 'abc'}],
+            mocker.Mock(),
+            binarise=True)
+        assert writer.cldf['ParameterTable', 'Gloss']
+
 
 def test_CLDFWriter_nexus_data_3(repos, tmp_path, mocker, nexus_tree, dataset, glottolog):
     from commonnexus import Nexus

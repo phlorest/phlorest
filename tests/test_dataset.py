@@ -17,6 +17,9 @@ def test_PhlorestDir(repos):
     nex = d.read_nexus('nexus.trees', preprocessor=lambda s: s.replace('Cojubim', 'abcdefg'))
     assert 'abcdefg' in str(nex)
 
+    nex = d.read_nexus('nexus.trees.gz')
+    assert nex.TREES.TREE
+
 
 def test_PhlorestDir_with_rates(repos):
     d = PhlorestDir(repos / 'raw')

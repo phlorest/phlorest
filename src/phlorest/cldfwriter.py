@@ -30,6 +30,27 @@ class CLDFWriter(cldfbench.CLDFWriter):
         return res
 
     def __exit__(self, *args):
+        if self.dataset:
+            if self.dataset.metadata.cldf:
+                self.cldf.add_provenance(
+                    wasDerivedFrom={
+                        "rdf:about": self.dataset.metadata.cldf,
+                        "rdf:type": "prov:Entity",
+                        'dc:description': 'The CLDF dataset from which the data underlying the '
+                                          'analysis was derived',
+                        'dc:format': 'https://cldf.clld.org',
+                    }
+                )
+            if self.dataset.metadata.data and self.dataset.metadata.data.startswith('http'):
+                self.cldf.add_provenance(
+                    wasDerivedFrom={
+                        "rdf:about": self.dataset.metadata.data,
+                        "rdf:type": "prov:Entity",
+                        'dc:description': 'The dataset from which the data underlying the '
+                                          'analysis was derived',
+                    }
+                )
+
         self.summary.__exit__(*args)
         self.posterior.__exit__(*args)
         return cldfbench.CLDFWriter.__exit__(self, *args)
