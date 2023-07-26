@@ -30,12 +30,18 @@ RESCALE_TO_YEARS = {
 
 @attr.s
 class Metadata(cldfbench.Metadata):
-    name = attr.ib(default=None)
-    author = attr.ib(default=None)
+    name = attr.ib(default=None, metadata=dict(required=True))
+    author = attr.ib(default=None, metadata=dict(required=True))
     year = attr.ib(default=None)
-    scaling = attr.ib(default='none', validator=attr.validators.in_(SCALING))
-    analysis = attr.ib(default='none', validator=attr.validators.in_(ANALYSES))
-    family = attr.ib(default=None)
+    scaling = attr.ib(
+        default='none',
+        validator=attr.validators.in_(SCALING),
+        metadata=dict(required=True))
+    analysis = attr.ib(
+        default='none',
+        validator=attr.validators.in_(ANALYSES),
+        metadata=dict(required=True))
+    family = attr.ib(default=None, metadata=dict(required=True))
     cldf = attr.ib(
         default=None,
         converter=lambda s: 'https://{}'.format(s) if s and s.startswith('github.com') else s)
@@ -74,3 +80,17 @@ class Metadata(cldfbench.Metadata):
                 "dc:description": "Dataset underlying the analysis"
             }]
         return res
+
+    @property
+    def text_description(self):
+        res = 'A [Phlorest phylogeny](https://github.com/phlorest)'
+        if self.family:
+            if self.family == 'Multiple':  # pragma: no cover
+                res += ' of multiple language families'
+            else:
+                res += ' of the {} language family'.format(self.family)
+        if self.analysis and self.analysis != 'none':
+            res += ' computed from a {} analysis'.format(self.analysis)
+        if self.scaling and self.scaling != 'none':
+            res += ' scaled by {}'.format(self.scaling)
+        return res + '.'

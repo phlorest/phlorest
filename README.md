@@ -72,6 +72,15 @@ pytest
 ```
 
 
+### Release workflow
+
+```shell
+cldfbench makecldf --glottolog-version vX.Y --with-zenodo --with-cldfreadme cldfbench_<id>.py
+pytest
+cldfbench readme cldfbench_<id>.py
+```
+
+
 ## Dependencies
 
 The `run_treeannotator` method of `Dataset` requires the `treeannotator` command from BEAST to be

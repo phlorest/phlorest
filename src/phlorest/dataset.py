@@ -181,10 +181,22 @@ class Dataset(cldfbench.Dataset):
 
     def _cmd_readme(self, args):
         cldfbench.Dataset._cmd_readme(self, args)
+        text = self.dir.joinpath('README.md').read_text(encoding='utf8')
+        text = text.replace('Available online', 'Source available online')
+        pre, header, post = text.partition('## Description')
+        text = pre + header + '\n\n' + self.metadata.text_description + post
+
         if self.dir.joinpath('summary_tree.svg').exists():
-            text = self.dir.joinpath('README.md').read_text(encoding='utf8')
-            text += '\n\n## Summary Tree\n\n![summary](./summary_tree.svg)'
-            self.dir.joinpath('README.md').write_text(text, encoding='utf8')
+            text += '\n\n## Summary Tree\n\n!' \
+                    '[summary](https://raw.githubusercontent.com/phlorest/{}/' \
+                    'main/summary_tree.svg)'.format(self.id)
+        self.dir.joinpath('README.md').write_text(text, encoding='utf8')
+        print('gh repo edit --description "{}" --add-topic "phylogeny"'.format(self.metadata.title))
+        if self.metadata.family:
+            print('gh repo edit --add-topic "language-family-{}"'.format(
+                self.metadata.family.lower().replace(' ', '')))
+        if self.metadata.url:  # pragma: no cover
+            print('gh repo edit --homepage "{}"'.format(self.metadata.url))
 
     def _read_from_etc(self, name):
         if (self.etc_dir / name).exists():
