@@ -44,8 +44,8 @@ def run_checks(d: typing.Union[CLDFDataset, Dataset], log) -> bool:
             "metadata missing value for `%s`" % mdkey)
 
     success &= check(
-        not (d.raw_dir / 'source.bib').exists(),
-        "raw/source.bib file missing")
+        not (d.raw_dir / 'sources.bib').exists(),
+        "raw/sources.bib file missing")
 
     success &= check(
         not (d.dir / 'CONTRIBUTORS.md').exists(),
