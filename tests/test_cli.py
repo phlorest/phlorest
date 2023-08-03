@@ -2,7 +2,7 @@ import shutil
 import logging
 import argparse
 
-from phlorest.commands import check
+from phlorest.commands import check, contrib
 from phlorest.__main__ import main
 from phlorest import Dataset
 
@@ -10,6 +10,12 @@ from phlorest import Dataset
 def test_check(dataset, caplog):
     check.run(argparse.Namespace(log=logging.getLogger(__name__)), dataset)
     assert len(caplog.records) >= 4
+
+
+def test_contrib(dataset, capsys):
+    contrib.run(argparse.Namespace(log=logging.getLogger(__name__)), dataset)
+    out, _ = capsys.readouterr()
+    assert 'GitHub user' in out
 
 
 def test_check_characters(tmp_repos):
