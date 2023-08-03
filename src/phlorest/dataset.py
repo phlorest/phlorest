@@ -172,12 +172,12 @@ class Dataset(cldfbench.Dataset):
     def init(self, args):
         """
         Create rows in LanguageTable according to `etc/taxa.csv` and add sources from
-        `raw/source.bib`.
+        `raw/sources.bib`.
         """
         args.writer.add_taxa(self.taxa, args.glottolog.api, args.log)
-        if self.raw_dir.joinpath('source.bib').exists():
+        if self.raw_dir.joinpath('sources.bib').exists():
             args.writer.cldf.sources.add(
-                self.raw_dir.joinpath('source.bib').read_text(encoding='utf8'))
+                self.raw_dir.joinpath('sources.bib').read_text(encoding='utf8'))
 
     def _cmd_readme(self, args):
         cldfbench.Dataset._cmd_readme(self, args)
