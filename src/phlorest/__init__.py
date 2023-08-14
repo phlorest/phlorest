@@ -5,7 +5,7 @@ from .beast import BeastFile
 from .nexuslib import NexusFile
 from . import commands
 
-__version__ = '1.3.0'
+__version__ = '1.3.1.dev0'
 __all__ = ['Dataset', 'Metadata', 'BeastFile', 'NexusFile', 'CLDFWriter']
 
 assert commands
