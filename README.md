@@ -79,6 +79,9 @@ cldfbench makecldf --glottolog-version vX.Y --with-cldfreadme cldfbench_<id>.py
 pytest
 cldfbench zenodo --communities phlorest cldfbench_<id>.py
 cldfbench readme cldfbench_<id>.py
+git commit -a -m"release vX.Y"
+git push origin
+cldfbench release cldfbench_<id>.py vX.Y
 ```
 
 

@@ -186,6 +186,15 @@ class Dataset(cldfbench.Dataset):
         pre, header, post = text.partition('## Description')
         text = pre + header + '\n\n' + self.metadata.text_description + post
 
+        lines = []
+        for line in text.split('\n'):
+            lines.append(line)
+            if line.startswith('[![CLDF validation]') and self.metadata.zenodo_concept_doi:
+                lines.append(
+                    '[![DOI](https://zenodo.org/badge/DOI/{0}.svg)](https://doi.org/{0})'.format(
+                        self.metadata.zenodo_concept_doi))  # pragma: no cover
+        text = '\n'.join(lines)
+
         if self.dir.joinpath('summary_tree.svg').exists():
             text += '\n\n## Summary Tree\n\n!' \
                     '[summary](https://raw.githubusercontent.com/phlorest/{}/' \

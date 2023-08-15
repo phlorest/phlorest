@@ -47,6 +47,7 @@ class Metadata(cldfbench.Metadata):
         converter=lambda s: 'https://{}'.format(s) if s and s.startswith('github.com') else s)
     data = attr.ib(default=None)
     missing = attr.ib(default=attr.Factory(dict))
+    zenodo_concept_doi = attr.ib(default=None)
 
     def __attrs_post_init__(self):
         if self.url:
