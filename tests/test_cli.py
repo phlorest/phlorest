@@ -8,7 +8,7 @@ from phlorest import Dataset
 
 
 def test_check(dataset, caplog):
-    check.run(argparse.Namespace(log=logging.getLogger(__name__)), dataset)
+    check.run(argparse.Namespace(log=logging.getLogger(__name__), with_R=False), dataset)
     assert len(caplog.records) >= 4
 
 
@@ -26,7 +26,7 @@ def test_check_characters(tmp_repos):
         dir = tmp_repos
         id = 'phy'
 
-    check.run(argparse.Namespace(log=logging.getLogger(__name__)), DS())
+    check.run(argparse.Namespace(log=logging.getLogger(__name__), with_R=False), DS())
 
 
 def test_main(dataset):

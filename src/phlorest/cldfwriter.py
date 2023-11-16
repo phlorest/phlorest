@@ -164,7 +164,8 @@ class CLDFWriter(cldfbench.CLDFWriter):
             self.add_tree(
                 tree,
                 self.posterior,
-                'posterior-{}'.format(i),
+                # We use a name format that works with the `tracerer` package for R:
+                'STATE_{}'.format(i),
                 metadata,
                 log,
                 'sample',

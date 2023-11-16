@@ -33,9 +33,9 @@ def rescale_to_years(nex: Nexus, orig_scaling, log=None) -> Nexus:
             nwk = tree.newick
             nwk.visit(functools.partial(_rescaler, RESCALE_TO_YEARS[orig_scaling]))
             trees.append((tree.name, nwk, tree.rooted))
-        nex.replace_block(
-            nex.TREES,
-            Trees.from_data(*trees, **nex.TREES.TRANSLATE.mappings if nex.TREES.TRANSLATE else {}))
+        kwarg = nex.TREES.TRANSLATE.mappings if nex.TREES.TRANSLATE else {}
+        kwarg.update(lowercase_command=True)
+        nex.replace_block(nex.TREES, Trees.from_data(*trees, **kwarg))
         return nex
     raise ValueError('Cannot rescale {} to years.'.format(orig_scaling))
 
@@ -104,7 +104,8 @@ class NexusFile:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._trees:
-            nex = Nexus.from_blocks(Trees.from_data(*self._trees))
+            nex = Nexus.from_blocks(
+                Trees.from_data(*self._trees, **dict(lowercase_command=True)))
             nex.to_file(self.path)
             if self.zipped:
                 with zipfile.ZipFile(
