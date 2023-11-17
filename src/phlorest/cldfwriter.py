@@ -12,7 +12,7 @@ from commonnexus.blocks.characters import Characters
 
 from .beast import BeastFile
 from .metadata import Metadata
-from .nexuslib import NexusFile
+from .nexuslib import NexusFile, norm_taxon_name
 
 
 class CLDFWriter(cldfbench.CLDFWriter):
@@ -56,7 +56,19 @@ class CLDFWriter(cldfbench.CLDFWriter):
         return cldfbench.CLDFWriter.__exit__(self, *args)
 
     def add_schema(self):
-        t = self.cldf.add_component('LanguageTable')
+        t = self.cldf.add_component(
+            'LanguageTable',
+            {
+                'name': "xd_ids",
+                'separator': ' ',
+                'datatype': {'base': 'string', 'format': 'xd[0-9]+'},
+                'dc:description':
+                    'D-PLACE “cross-data-set” identifier, used to link societies present in '
+                    'different datasets, if they share a focal location. Note: If this field is '
+                    'empty, other fields such as Name, Glottocode or location may be used to '
+                    'identify languoids/societies across datasets if appropriate.',
+            },
+        )
         t.common_props['dc:description'] = \
             "The LanguageTable lists the taxa, i.e. the leafs of the phylogeny, mapped to " \
             "languoids."
@@ -143,6 +155,8 @@ class CLDFWriter(cldfbench.CLDFWriter):
         """
         Add `tree` as summary tree to the dataset.
         """
+        if isinstance(tree, newick.Node):
+            pass
         self.add_tree(
             tree, self.summary, 'summary', metadata, log, 'summary', source=source, rooted=rooted)
         log.info("added summary tree")
@@ -223,15 +237,15 @@ class CLDFWriter(cldfbench.CLDFWriter):
             'MediaTable',
             dict(ID='data', Media_Type='text/plain', Download_URL='file:///data.nex'))
 
-        assert all(t in self._lids for t in nex.taxa), "Taxa in nexus not in taxa.csv: {}".format(
-            [t for t in nex.taxa if t not in self._lids])
-
         if binarise:
             _, statelabels = nex.characters.get_charstatelabels()
             new = CharacterMatrix.binarised(nex.characters.get_matrix(), statelabels=statelabels)
             nex.replace_block(nex.characters, Characters.from_data(new))
 
-        normalise(nex).to_file(self.cldf_spec.dir / 'data.nex')
+        nex = normalise(nex, rename_taxa=lambda t: t.replace('-', '_'))
+        assert all(t in self._lids for t in nex.taxa), "Taxa in nexus not in taxa.csv: {}".format(
+            [t for t in nex.taxa if t not in self._lids])
+        nex.to_file(self.cldf_spec.dir / 'data.nex')
         self.cldf.add_provenance(
             wasDerivedFrom={
                 "rdf:about": "data.nex",
@@ -259,7 +273,8 @@ class CLDFWriter(cldfbench.CLDFWriter):
                     log,
                     exclude=['taxon', 'glottocode', 'soc_ids', 'xd_ids'])
                 self.cldf.add_columns('LanguageTable', 'Glottolog_Name')
-            self._lids.add(row['taxon'])
+            lid = norm_taxon_name(row['taxon'])
+            self._lids.add(lid)
             glang = None
             if row['glottocode']:
                 try:
@@ -267,12 +282,15 @@ class CLDFWriter(cldfbench.CLDFWriter):
                 except KeyError:  # pragma: no cover
                     log.error('Invalid glottocode in taxa.csv: {}'.format(row['glottocode']))
             d = dict(
-                ID=row['taxon'],
+                ID=lid,
                 Name=row['taxon'],
                 Glottocode=row['glottocode'] or None,
                 Glottolog_Name=glang.name if glang else None,
                 Latitude=glang.latitude if glang else None,
                 Longitude=glang.longitude if glang else None,
+                xd_ids=[x.strip() for x in row.get('xd_ids', '').split(',') if x.strip()],
             )
+            if 'xd_ids' in row:
+                del row['xd_ids']
             self.add_obj('LanguageTable', d, row)
         log.info("added taxa (taxa=%d)" % len(taxa))

@@ -10,7 +10,11 @@ from commonnexus.blocks import Trees
 
 from .metadata import RESCALE_TO_YEARS
 
-__all__ = ['NexusFile', 'Tree', 'rescale_to_years']
+__all__ = ['NexusFile', 'Tree', 'rescale_to_years', 'norm_taxon_name']
+
+
+def norm_taxon_name(s):
+    return s.replace('-', '_') if s else s
 
 
 def rescale_to_years(nex: Nexus, orig_scaling, log=None) -> Nexus:
@@ -70,6 +74,11 @@ class NexusFile:
             tree = tree.newick
         if isinstance(tree, str):
             tree = newick.loads(tree)[0]
+
+        def norm(n):
+            n.name = norm_taxon_name(n.name)
+        tree.visit(norm)
+
         with_lids = bool(lids)
         if with_lids:
             lids = copy.copy(lids)

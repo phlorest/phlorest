@@ -6,7 +6,7 @@ import pathlib
 import zipfile
 import subprocess
 
-from clldutils.path import TemporaryDirectory
+from clldutils.path import TemporaryDirectory, ensure_cmd
 from termcolor import colored
 from cldfbench.cli_util import add_dataset_spec, get_dataset
 from commonnexus import Nexus
@@ -49,7 +49,7 @@ def run(args, d=None):
                         p = tmp / p.name
                     ntrees = len(Nexus.from_file(p).TREES.commands['TREE'])
                     res = subprocess.call([
-                        'Rscript',
+                        ensure_cmd('Rscript'),
                         str(pathlib.Path(__file__).parent.parent / 'check.R'),
                         str(p),
                         str(ntrees),

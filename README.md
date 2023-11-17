@@ -75,11 +75,11 @@ pytest
 ### Release workflow
 
 ```shell
-cldfbench makecldf --glottolog-version vX.Y --with-cldfreadme cldfbench_<id>.py
+cldfbench makecldf --glottolog-version v4.8 --with-cldfreadme cldfbench_<id>.py
 pytest
 cldfbench zenodo --communities phlorest cldfbench_<id>.py
 cldfbench readme cldfbench_<id>.py
-phlorest check cldfbench_<id>.py --with-R
+phlorest check --with-R cldfbench_<id>.py
 git commit -a -m"release vX.Y"
 git push origin
 phlorest release cldfbench_<id>.py vX.Y
