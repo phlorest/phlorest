@@ -155,8 +155,6 @@ class CLDFWriter(cldfbench.CLDFWriter):
         """
         Add `tree` as summary tree to the dataset.
         """
-        if isinstance(tree, newick.Node):
-            pass
         self.add_tree(
             tree, self.summary, 'summary', metadata, log, 'summary', source=source, rooted=rooted)
         log.info("added summary tree")
@@ -288,7 +286,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
                 Glottolog_Name=glang.name if glang else None,
                 Latitude=glang.latitude if glang else None,
                 Longitude=glang.longitude if glang else None,
-                xd_ids=[x.strip() for x in row.get('xd_ids', '').split(',') if x.strip()],
+                xd_ids=[x.strip() for x in (row.get('xd_ids') or '').split(',') if x.strip()],
             )
             if 'xd_ids' in row:
                 del row['xd_ids']

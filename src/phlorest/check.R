@@ -20,7 +20,15 @@ res <- 0
 
 readers <- list(
   "ape" = function(x) ape::read.nexus(x, force.multi = TRUE),
-  "treeio" = function(x) treeio::read.beast(x),
+  "treeio" = function(x) {
+    trees <- treeio::read.nexus(x)
+    # We force multi "by hand":
+    if (class(trees) != 'multiPhylo'){
+      trees <- list(c(trees))
+      class(trees) <- "multiPhylo"
+    }
+    trees
+  },
   "rncl" = function(x) {
     trees <- rncl::read_nexus_phylo(x)
     # We force multi "by hand":
