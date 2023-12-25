@@ -20,6 +20,9 @@ def test_PhlorestDir(repos):
     nex = d.read_nexus('nexus.trees.gz')
     assert nex.TREES.TREE
 
+    nex = d.read_nexus('nexus.trees.bz2')
+    assert nex.TREES.TREE
+
 
 def test_PhlorestDir_with_rates(repos):
     d = PhlorestDir(repos / 'raw')

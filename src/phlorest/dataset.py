@@ -1,4 +1,5 @@
 import gzip
+import bz2
 import shlex
 import shutil
 import random
@@ -40,6 +41,9 @@ class PhlorestDir(DataDir):
             path = self._path(path)
             if path.suffix == '.gz':
                 with gzip.open(path, 'rt', encoding='utf8') as fp:
+                    text = fp.read()
+            if path.suffix == '.bz2':
+                with bz2.open(path, 'rt', encoding='utf8') as fp:
                     text = fp.read()
         res = Nexus(preprocessor(text or self.read(path, encoding=encoding)))
         return nexus_norm(res) if normalise else res
