@@ -19,6 +19,7 @@ ANALYSES = [
     'parsimony',
     'likelihood',
     'network',
+    'supertree',
     'other',
     'none',  # override.
 ]
