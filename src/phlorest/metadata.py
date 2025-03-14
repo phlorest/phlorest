@@ -46,6 +46,7 @@ class Metadata(cldfbench.Metadata):
         default=None,
         converter=lambda s: 'https://{}'.format(s) if s and s.startswith('github.com') else s)
     data = attr.ib(default=None)
+    artefacts = attr.ib(default=None)
     missing = attr.ib(default=attr.Factory(dict))
     zenodo_concept_doi = attr.ib(default=None)
 
