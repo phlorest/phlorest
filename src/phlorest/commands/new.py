@@ -2,7 +2,6 @@
 Create a skeleton for a new dataset
 """
 import pathlib
-import collections
 
 from phlorest.scaffold import PhlorestTemplate
 
@@ -15,7 +14,6 @@ def register(parser):  # pragma: no cover
         default=pathlib.Path('.'))
 
 
-def run(args):
+def run(args):  # pragma: no cover
     tmpl = PhlorestTemplate()
-    md = tmpl.metadata.elicit()
-    tmpl.render(args.out, md)
+    tmpl.render(args.out, tmpl.metadata.elicit())

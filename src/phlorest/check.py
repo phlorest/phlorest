@@ -76,14 +76,16 @@ def run_checks(d: typing.Union[CLDFDataset, Dataset], log) -> bool:
         success &= check(
             all(char.get('Concepticon_ID', "") == "" for char in d.characters),
             "characters.csv file missing concepticon coding")
-    
-    # check that we have the same number of entries in ./etc/characters.csv and ./cldf/parameters.csv
+
+    # check that we have the same number of entries in ./etc/characters.csv and
+    # ./cldf/parameters.csv
     if d.characters:
         try:
             nparams = len(d.cldf_dir.read_csv('parameters.csv', dicts=True))
         except FileNotFoundError:
             nparams = 0
-        success &= check(nparams != len(d.characters), "characters.csv does not match parameters.csv")
+        success &= check(
+            nparams != len(d.characters), "characters.csv does not match parameters.csv")
 
     success &= check((d.dir / 'Makefile').exists(), "has a legacy Makefile")
     return success
