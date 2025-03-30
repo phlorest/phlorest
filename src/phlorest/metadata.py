@@ -9,6 +9,7 @@ __all__ = ['SCALING', 'RESCALE_TO_YEARS', 'Metadata']
 SCALING = [
     'none',  # no branch lengths
     'change',  # parsimony steps
+    'arbitrary',  # meaningless -- arbitrary
     'substitutions',  # change
     'years',  # years
     'centuries',  # centuries
