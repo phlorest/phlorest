@@ -75,7 +75,7 @@ pytest
 ### Release workflow
 
 ```shell
-cldfbench makecldf --glottolog-version v4.8 --with-cldfreadme cldfbench_<id>.py
+cldfbench makecldf --glottolog-version v5.2 --with-cldfreadme cldfbench_<id>.py
 pytest
 cldfbench zenodo --communities phlorest cldfbench_<id>.py
 cldfbench readme cldfbench_<id>.py

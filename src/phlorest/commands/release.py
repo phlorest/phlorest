@@ -28,8 +28,10 @@ DOI""".format(cldf.properties['dc:bibliographicCitation']),
     print('gh release create {} --title "{}" --notes-file relnotes.txt'.format(
         tag, cldf.properties['dc:title']))
     print('')
-    print("Now you should grab the Zenodo version DOI from\n"
+    print("Now you should submit the deposit to the phlorest community and\n"
+          "grab the Zenodo version DOI from\n"
           "https://zenodo.org/account/settings/github/repository/phlorest/{0}\n"
           "and add it to\n"
-          "https://github.com/phlorest/{0}/releases/edit/{1}\n and the concept DOI to "
+          "https://github.com/phlorest/{0}/releases/edit/{1}\n and the concept DOI "
+          "under the key 'zenodo_concept_doi' to "
           "metdata.json".format(cldf.properties['rdf:ID'], tag))

@@ -164,7 +164,7 @@ class Dataset(cldfbench.Dataset):
 
                 return render(
                     tree,
-                    self.dir / 'summary_tree.svg',
+                    output=self.dir / 'summary_tree.svg',
                     glottolog_mapping={
                         r['ID']: (r['Glottocode'], r.get('Glottolog_Name'))
                         for r in cldf['LanguageTable'] if r['Glottocode']},
@@ -200,9 +200,11 @@ class Dataset(cldfbench.Dataset):
         text = '\n'.join(lines)
 
         if self.dir.joinpath('summary_tree.svg').exists():
-            text += '\n\n## Summary Tree\n\n!' \
-                    '[summary](https://raw.githubusercontent.com/phlorest/{}/' \
-                    'main/summary_tree.svg)'.format(self.id)
+            text += \
+                "\n## Summary Tree\n\n![summary]({0}{1}/main/summary_tree.svg)\n\n" \
+                "[Summary tree visualized with IcyTree]" \
+                "(https://icytree.org/?url={0}{1}/refs/heads/main/cldf/summary.trees)\n".format(
+                    'https://raw.githubusercontent.com/phlorest/', self.id)
         self.dir.joinpath('README.md').write_text(text, encoding='utf8')
         print('gh repo edit --description "{}" --add-topic "phylogeny"'.format(self.metadata.title))
         if self.metadata.family:
