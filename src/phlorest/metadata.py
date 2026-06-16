@@ -19,6 +19,7 @@ ANALYSES = [
     'bayesian',
     'parsimony',
     'likelihood',
+    'distance',
     'network',
     'supertree',
     'other',
