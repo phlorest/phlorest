@@ -10,20 +10,20 @@ import sys
 import argparse
 import contextlib
 
-import phlorest
-
+import termcolor
 from clldutils.clilib import register_subcommands
 from clldutils.clilib import get_parser_and_subparsers
 from clldutils.clilib import ParserError
 from clldutils.loglib import Logging
-
 from cldfcatalog import Config
 from cldfbench.catalogs import BUILTIN_CATALOGS
 
-import termcolor
+import phlorest
 
 
-def main(args=None, catch_all=False, parsed_args=None, log=None):  # pragma: no cover
+def main(  # pylint: disable=R0911,R0912
+        args=None, catch_all=False, parsed_args=None, log=None):  # pragma: no cover
+    """cli"""
     parser, subparsers = get_parser_and_subparsers(phlorest.__name__)
 
     # We add a "hidden" option to turn-off config file reading in tests:
@@ -61,33 +61,30 @@ def main(args=None, catch_all=False, parsed_args=None, log=None):  # pragma: no 
                             from_cfg = True
                         except KeyError as e:  # pragma: no cover
                             print(termcolor.colored(str(e) + '\n', 'red'))
-                            return main([args._command, '-h'])
+                            return main([args._command, '-h'])  # pylint: disable=W0212
                     try:
                         setattr(
                             args,
                             name,
-                            stack.enter_context(
-                                cls(path, getattr(args, name + '_version', None))),
+                            stack.enter_context(cls(path, getattr(args, name + '_version', None))),
                         )
                     except ValueError as e:
-                        print(termcolor.colored(
-                            '\nError initializing catalog {0}'.format(name), 'red'))
+                        print(termcolor.colored(f'\nError initializing catalog {name}', 'red'))
                         if from_cfg:
-                            print(
-                                termcolor.colored('from config {0}'.format(cfg.fname()), 'red'))
+                            print(termcolor.colored(f'from config {cfg.fname()}', 'red'))
                         print(termcolor.colored(str(e) + '\n', 'red'))
-                        return main([args._command, '-h'])
+                        return main([args._command, '-h'])  # pylint: disable=W0212
 
         try:
             return args.main(args) or 0
         except KeyboardInterrupt:  # pragma: no cover
             return 0
         except ParserError as e:
-            print(termcolor.colored('ERROR: {}\n'.format(e), 'red', attrs={'bold'}))
-            return main([args._command, '-h'])
+            print(termcolor.colored(f'ERROR: {e}\n', 'red', attrs={'bold'}))
+            return main([args._command, '-h'])  # pylint: disable=W0212
         except Exception as e:
             if catch_all:  # pragma: no cover
-                print(termcolor.colored('ERROR: {}\n'.format(e), 'red', attrs={'bold'}))
+                print(termcolor.colored(f'ERROR: {e}\n', 'red', attrs={'bold'}))
                 return 1
             raise
 

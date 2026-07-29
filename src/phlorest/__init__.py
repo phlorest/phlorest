@@ -1,3 +1,6 @@
+"""
+The `phlorest` package provides functionality to curate Phlorest phylogenies.
+"""
 from .dataset import Dataset
 from .cldfwriter import CLDFWriter
 from .metadata import Metadata

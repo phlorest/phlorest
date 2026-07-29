@@ -1,20 +1,24 @@
 """
 Checks datasets for compliance
 """
+import argparse
 import shutil
 import pathlib
 import zipfile
 import subprocess
+from typing import Optional
 
 from clldutils.path import TemporaryDirectory, ensure_cmd
 from termcolor import colored
-from cldfbench.cli_util import add_dataset_spec, get_dataset
+from cldfbench.cli_util import add_dataset_spec
 from commonnexus import Nexus
 
+from phlorest.cli_util import get_dataset
+from phlorest.dataset import Dataset
 from phlorest.check import run_checks
 
 
-def register(parser):  # pragma: no cover
+def register(parser):  # pragma: no cover  # pylint: disable=C0116
     add_dataset_spec(parser)
     parser.add_argument(
         '--with-R',
@@ -25,23 +29,19 @@ def register(parser):  # pragma: no cover
         default=False)
 
 
-def run(args, d=None):
+def run(args: argparse.Namespace, d: Optional[Dataset] = None):  # pylint: disable=C0116
     if d is None:  # pragma: no cover
-        try:
-            d = get_dataset(args)
-        except Exception as e:
-            args.log.error("Unable to load %s - %s" % (args.dataset, e))
-            raise
+        d = get_dataset(args)
 
     success = True
     if args.with_R:  # pragma: no cover
-        for fname in {'summary.trees', 'posterior.trees.zip'}:
+        for fname in ['summary.trees', 'posterior.trees.zip']:
             if d.cldf_dir.joinpath(fname).exists():
                 p = d.cldf_dir / fname
                 with TemporaryDirectory() as tmp:
                     if fname.endswith('.zip'):
-                        with zipfile.ZipFile(p) as zip:
-                            zip.extract(zip.infolist()[0], tmp)
+                        with zipfile.ZipFile(p) as zipf:
+                            zipf.extract(zipf.infolist()[0], tmp)
                             assert tmp.joinpath(p.stem).exists()
                             p = tmp / p.stem
                     else:
@@ -58,4 +58,4 @@ def run(args, d=None):
                         success = False
 
     msg, color = ('PASS', 'green') if run_checks(d, args.log) and success else ('FAIL', 'red')
-    print('{} {}'.format(colored(msg, color, attrs=['bold']), d.id))
+    print(f"{colored(msg, color, attrs=['bold'])} {d.id}")

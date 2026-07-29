@@ -1,7 +1,11 @@
+"""
+Functionality to extract information from BEAST files.
+"""
 import typing
 import pathlib
 import collections
-import xml.etree.cElementTree as ElementTree
+from collections.abc import Generator
+from xml.etree import ElementTree
 
 from commonnexus import Nexus
 from commonnexus.blocks import Characters
@@ -10,6 +14,7 @@ __all__ = ['BeastFile']
 
 
 class BeastFile:
+    """XML file describing a BEAST analysis."""
     def __init__(self, path: typing.Union[str, pathlib.Path], text: typing.Optional[str] = None):
         self.path = path
         self.text = text
@@ -36,7 +41,7 @@ class BeastFile:
         def add_row(taxon, seq):
             matrix[taxon] = collections.OrderedDict()
             for i, state in enumerate([s for s in seq if s != ' '], start=1):
-                assert state in valid_states, 'Invalid State %s' % state
+                assert state in valid_states, f'Invalid State {state}'
                 matrix[taxon][chars.get(i, str(i))] = None if state == '?' else state
 
         for seq in self.xml.findall('./data/sequence'):
@@ -50,7 +55,8 @@ class BeastFile:
 
         return Nexus.from_blocks(Characters.from_data(matrix))
 
-    def iter_characters(self):
+    def iter_characters(self) -> Generator[tuple[int, str], None, None]:
+        """Yield (position, label) pairs for the characters described in the BEAST file."""
         def get_partition(p):
             x, y = [int(_) for _ in p.get('filter').split("-")]
             return (p.get('id'), x, y)
@@ -58,14 +64,14 @@ class BeastFile:
         def printchar(p, x, y, ascertained=False):
             n = 1
             for i in range(x, y + 1):
-                label = "%s-%s" % (p, 'ascertained' if n == 1 and ascertained else str(n))
+                label = f"{p}-{'ascertained' if n == 1 and ascertained else str(n)}"
                 yield i, label
                 n += 1
 
-        def get_by_id(data_id):
+        def get_by_id(data_id: str):
             if data_id.startswith("@"):
                 data_id = data_id.lstrip("@")
-            res = self.xml.find(".//alignment[@id='%s']" % data_id)
+            res = self.xml.find(f".//alignment[@id='{data_id}']")
             if res is None:  # pragma: no cover
                 raise ValueError(data_id)
             return res

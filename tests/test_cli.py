@@ -13,7 +13,7 @@ def test_check(dataset, caplog):
 
 
 def test_contrib(dataset, capsys):
-    contrib.run(argparse.Namespace(log=logging.getLogger(__name__)), dataset)
+    contrib.run(argparse.Namespace(log=logging.getLogger(__name__), format='pipe'), dataset)
     out, _ = capsys.readouterr()
     assert 'GitHub user' in out
 

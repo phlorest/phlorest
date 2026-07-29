@@ -1,29 +1,39 @@
-import typing
+"""
+Enhanced cldfbench.CLDFWriter
+"""
+import logging
 import pathlib
+from typing import Optional, Union, Any
+from collections.abc import Iterable, Container
 
 import cldfbench
-import newick
 import tqdm
 from pycldf.terms import TERMS
+from pycldf.dataset import TableType
 from commonnexus import Nexus
 from commonnexus.tools.normalise import normalise
 from commonnexus.tools.matrix import CharacterMatrix
 from commonnexus.blocks.characters import Characters
+from pyglottolog import Glottolog
 
 from .beast import BeastFile
 from .metadata import Metadata
-from .nexuslib import NexusFile, norm_taxon_name
+from .nexuslib import NexusFile, norm_taxon_name, TreeType
 
 
 class CLDFWriter(cldfbench.CLDFWriter):
     """
     A CLDF writer that knows how to add phylogentic data.
     """
+    summary: NexusFile
+    posterior: NexusFile
+    _lids: set
+
     def __enter__(self):
         self._lids = set()
-        self.summary = NexusFile(self.cldf_spec.dir / 'summary.trees')
+        self.summary: NexusFile = NexusFile(self.cldf_spec.dir / 'summary.trees')
         self.summary.__enter__()
-        self.posterior = NexusFile(self.cldf_spec.dir / 'posterior.trees', zipped=True)
+        self.posterior: NexusFile = NexusFile(self.cldf_spec.dir / 'posterior.trees', zipped=True)
         self.posterior.__enter__()
         res = cldfbench.CLDFWriter.__enter__(self)
         self.add_schema()
@@ -56,6 +66,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
         return cldfbench.CLDFWriter.__exit__(self, *args)
 
     def add_schema(self):
+        """Add phlorest-specifies."""
         t = self.cldf.add_component(
             'LanguageTable',
             {
@@ -75,7 +86,13 @@ class CLDFWriter(cldfbench.CLDFWriter):
         self.cldf.add_component('TreeTable')
         self.cldf.add_component('MediaTable')
 
-    def add_columns(self, table, obj, log, exclude=None):
+    def add_columns(
+            self,
+            table: TableType,
+            obj: dict[str, Any],
+            log: logging.Logger,
+            exclude: Optional[Container[str]] = None,
+    ):
         """
         Wraps `pycldf.Dataset.add_columns`, adding some checking.
         """
@@ -87,17 +104,19 @@ class CLDFWriter(cldfbench.CLDFWriter):
             if k not in exclude:
                 col = TERMS[lname].to_column() if lname in TERMS else k
                 if getattr(col, 'name', k) in existing:
-                    log.error('Duplicate column name {} for {}'.format(k, table))
+                    log.error('Duplicate column name %s for %s', k, table)
                     continue
                 new.append(col)
 
         self.cldf.add_columns(table, *new)
 
-    def add_obj(self,
-                table: str,
-                d: dict,
-                row: typing.Optional[dict] = None,
-                rename: typing.Optional[typing.Dict[str, str]] = None):
+    def add_obj(
+            self,
+            table: str,
+            d: dict[str, Any],
+            row: Optional[dict[str, Any]] = None,
+            rename: Optional[dict[str, str]] = None,
+    ):
         """
         Merge data from `row` into `d` and add the resulting `dict` to table `table`.
         """
@@ -109,15 +128,18 @@ class CLDFWriter(cldfbench.CLDFWriter):
             d[k] = v
         self.objects[table].append(d)
 
-    def add_tree(self,
-                 tree: typing.Union[str, newick.Node],
-                 nex: NexusFile,
-                 tid: str,
-                 metadata: Metadata,
-                 log,
-                 type_,
-                 source=None,
-                 rooted: typing.Optional[bool] = None):
+    def add_tree(  # pylint: disable=R0913,R0917
+            self,
+            tree: TreeType,
+            nex: NexusFile,
+            tid: str,
+            metadata: Metadata,
+            log: logging.Logger,
+            type_: str,
+            source: Optional[str] = None,
+            rooted: Optional[bool] = None,
+    ):
+        """Add a tree to a NexusFile and record it in MediaTable and TreeTable."""
         nex.append(tree, tid, self._lids, metadata.scaling, log, rooted=rooted)
         if source is None:
             bibkeys = list(self.cldf.sources.keys())
@@ -127,15 +149,15 @@ class CLDFWriter(cldfbench.CLDFWriter):
         # Add media file only if necessary!
         mids = [m['ID'] for m in self.objects['MediaTable']]
         if nex.path.stem not in mids:
-            self.objects['MediaTable'].append(dict(
+            is_summary = nex.path.stem == 'summary'
+            self.objects['MediaTable'].append(dict(  # pylint: disable=R1735
                 ID=nex.path.stem,
                 Media_Type='text/plain',
-                Download_URL='file:///{}{}'.format(
-                    nex.path.name, '' if nex.path.stem == 'summary' else '.zip'),
-                Path_In_Zip=None if nex.path.stem == 'summary' else 'posterior.trees',
+                Download_URL=f"file:///{nex.path.name}{'' if is_summary else '.zip'}",
+                Path_In_Zip=None if is_summary else 'posterior.trees',
             ))
 
-        self.objects['TreeTable'].append(dict(
+        self.objects['TreeTable'].append(dict(  # pylint: disable=R1735
             ID=tid,
             Name=tid,
             Media_ID=nex.path.stem,
@@ -146,12 +168,14 @@ class CLDFWriter(cldfbench.CLDFWriter):
             Source=[source] if isinstance(source, str) else source,
         ))
 
-    def add_summary(self,
-                    tree: typing.Union[str, newick.Node],
-                    metadata: Metadata,
-                    log,
-                    source=None,
-                    rooted=None):
+    def add_summary(
+            self,
+            tree: TreeType,
+            metadata: Metadata,
+            log: logging.Logger,
+            source: Optional[str] = None,
+            rooted: Optional[bool] = None,
+    ):
         """
         Add `tree` as summary tree to the dataset.
         """
@@ -159,13 +183,15 @@ class CLDFWriter(cldfbench.CLDFWriter):
             tree, self.summary, 'summary', metadata, log, 'summary', source=source, rooted=rooted)
         log.info("added summary tree")
 
-    def add_posterior(self,
-                      trees: typing.List[typing.Union[str, newick.Node]],
-                      metadata: Metadata,
-                      log,
-                      source=None,
-                      verbose=False,
-                      rooted=None):
+    def add_posterior(  # pylint: disable=R0913,R0917
+            self,
+            trees: list[TreeType],
+            metadata: Metadata,
+            log: logging.Logger,
+            source: Optional[str] = None,
+            verbose: bool = False,
+            rooted: Optional[bool] = None,
+    ):
         """
         Add `trees` as posterior sample of trees to the dataset.
         """
@@ -177,34 +203,36 @@ class CLDFWriter(cldfbench.CLDFWriter):
                 tree,
                 self.posterior,
                 # We use a name format that works with the `tracerer` package for R:
-                'STATE_{}'.format(i),
+                f'STATE_{i}',
                 metadata,
                 log,
                 'sample',
                 source=source,
                 rooted=rooted)
-        log.info("added posterior trees (n=%d)" % i)
+        log.info("added posterior trees (n=%d)", i)
 
-    def add_data(self,
-                 input: typing.Union[BeastFile, pathlib.Path, str, Nexus],
-                 characters: typing.Iterable[typing.Dict[str, str]],
-                 log,
-                 binarise: bool = False):
+    def add_data(
+            self,
+            input_: Union[BeastFile, pathlib.Path, str, Nexus],
+            characters: Iterable[dict[str, str]],
+            log,
+            binarise: bool = False,
+    ):
         """
         Add character data from which the tree(s) in the dataset were computed.
 
-        :param input: Character data can be read from BEAST files and NEXUS files.
+        :param input_: Character data can be read from BEAST files and NEXUS files.
         :param characters: Character metadata, per site.
         :param log:
         """
-        if isinstance(input, BeastFile):
-            nex = input.nexus()
-        elif isinstance(input, pathlib.Path):
-            nex = Nexus.from_file(input)
-        elif isinstance(input, str):
-            nex = Nexus(input)
+        if isinstance(input_, BeastFile):
+            nex = input_.nexus()
+        elif isinstance(input_, pathlib.Path):
+            nex = Nexus.from_file(input_)
+        elif isinstance(input_, str):
+            nex = Nexus(input_)
         else:
-            nex = input
+            nex = input_
         assert isinstance(nex, Nexus)
         charlabels, _ = nex.characters.get_charstatelabels()
 
@@ -229,11 +257,11 @@ class CLDFWriter(cldfbench.CLDFWriter):
         self.cldf['ParameterTable', 'ID'].common_props['dc:description'] = \
             "Sequence index of the site in the corresponding Nexus file."
         for site, label in charlabels.items():
-            d = dict(ID=site, Name=label, Nexus_File='data')
-            self.add_obj('ParameterTable', d, md.get(site, {}), rename=dict(Label='Name'))
+            d = {'ID': site, 'Name': label, 'Nexus_File': 'data'}
+            self.add_obj('ParameterTable', d, md.get(site, {}), rename={'Label': 'Name'})
         self.add_obj(
             'MediaTable',
-            dict(ID='data', Media_Type='text/plain', Download_URL='file:///data.nex'))
+            {'ID': 'data', 'Media_Type': 'text/plain', 'Download_URL': 'file:///data.nex'})
 
         if binarise:
             _, statelabels = nex.characters.get_charstatelabels()
@@ -241,8 +269,8 @@ class CLDFWriter(cldfbench.CLDFWriter):
             nex.replace_block(nex.characters, Characters.from_data(new))
 
         nex = normalise(nex, rename_taxa=lambda t: t.replace('-', '_'))
-        assert all(t in self._lids for t in nex.taxa), "Taxa in nexus not in taxa.csv: {}".format(
-            [t for t in nex.taxa if t not in self._lids])
+        assert all(t in self._lids for t in nex.taxa), \
+            f"Taxa in nexus not in taxa.csv: {[t for t in nex.taxa if t not in self._lids]}"
         nex.to_file(self.cldf_spec.dir / 'data.nex')
         self.cldf.add_provenance(
             wasDerivedFrom={
@@ -252,16 +280,18 @@ class CLDFWriter(cldfbench.CLDFWriter):
                 'dc:format': 'https://en.wikipedia.org/wiki/Nexus_file',
             }
         )
-        log.info("added data nexus (characters=%d)" % len(charlabels))
+        log.info("added data nexus (characters=%d)", len(charlabels))
 
-    def add_taxa(self,
-                 taxa: typing.List[typing.Dict[str, str]],
-                 glottolog,
-                 log):
+    def add_taxa(
+            self,
+            taxa: list[dict[str, str]],
+            glottolog: Glottolog,
+            log: logging.Logger,
+    ):
+        """Add taxa, i.e. rows of LanguageTable."""
         glangs = {lg.id: lg for lg in glottolog.languoids()}
         #
-        # FIXME: add metadata from Glottolog, put in dplace-tree-specific Dataset base class.
-        # FIXME: log warnings if taxa are mapped to bookkeeping languoids!
+        # log warnings if taxa are mapped to bookkeeping languoids!?
         #
         for i, row in enumerate(taxa):
             if i == 0:
@@ -278,8 +308,8 @@ class CLDFWriter(cldfbench.CLDFWriter):
                 try:
                     glang = glangs[row['glottocode']]
                 except KeyError:  # pragma: no cover
-                    log.error('Invalid glottocode in taxa.csv: {}'.format(row['glottocode']))
-            d = dict(
+                    log.error('Invalid glottocode in taxa.csv: %s', row['glottocode'])
+            d = dict(  # pylint: disable=R1735
                 ID=lid,
                 Name=row['taxon'],
                 Glottocode=row['glottocode'] or None,
@@ -291,4 +321,4 @@ class CLDFWriter(cldfbench.CLDFWriter):
             if 'xd_ids' in row:
                 del row['xd_ids']
             self.add_obj('LanguageTable', d, row)
-        log.info("added taxa (taxa=%d)" % len(taxa))
+        log.info("added taxa (taxa=%d)", len(taxa))

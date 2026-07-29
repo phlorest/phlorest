@@ -20,8 +20,16 @@ end;""")
 def test_NexusFile(tmp_path, mocker):
     with NexusFile(tmp_path / 'test.nex') as nex:
         nex.append(Tree('n', '(A:1,B:2)root:3;', None), 'a', {'A', 'B'}, 'years', mocker.Mock())
-        with pytest.raises(ValueError):
+
+        with pytest.raises(ValueError) as excinfo:
             nex.append(Tree('n', '(A:1,B:2)root:3;', None), 'c', {'A', 'B'}, 'change', mocker.Mock())
+        assert excinfo.type == ValueError, "Different scaling of subsequent tree."
+
+        with pytest.raises(ValueError):
+            nex.append(Tree('n', '(A:1,B:2)root:3;', None), 'c', {'B', 'C'}, 'change', mocker.Mock())
+
+        with pytest.raises(ValueError):
+            nex.append(Tree('n', '(A:1,B:2)root:3;', None), 'c', ['B'], 'change', mocker.Mock())
     res = Nexus.from_file(tmp_path / 'test.nex')
     assert len(res.TREES.trees) == 1
 

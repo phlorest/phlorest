@@ -1,23 +1,41 @@
+"""
+Functionality to write trees to Nexus files in a standardized way.
+"""
 import copy
-import typing
+import logging
+import pathlib
 import zipfile
 import functools
 import dataclasses
+from typing import Optional, Union
 
 import newick
 from commonnexus import Nexus
 from commonnexus.blocks import Trees
 
-from .metadata import RESCALE_TO_YEARS
+from .metadata import RESCALE_TO_YEARS, YearMultiplesType
 
 __all__ = ['NexusFile', 'Tree', 'rescale_to_years', 'norm_taxon_name']
 
+PathType = Union[str, pathlib.Path]
+TreeType = Union['Tree', str, newick.Node]
 
-def norm_taxon_name(s):
+
+def norm_taxon_name(s: Optional[str]) -> Optional[str]:
+    """
+    Normalize a taxon name to make it suitable as identifier.
+    """
     return s.replace('-', '_') if s else s
 
 
-def rescale_to_years(nex: Nexus, orig_scaling, log=None) -> Nexus:
+def norm_taxon_name_visitor(n: newick.Node):
+    """
+    Normalize a node name.
+    """
+    n.name = norm_taxon_name(n.name)
+
+
+def rescale_to_years(nex: Nexus, orig_scaling: YearMultiplesType, **_) -> Nexus:
     """
     Rescales trees in a nexus file to years (if possible).
 
@@ -26,58 +44,64 @@ def rescale_to_years(nex: Nexus, orig_scaling, log=None) -> Nexus:
     :param log:
     :return: The mutated `Nexus` object.
     """
-    def _rescaler(factor, n):
-        n._length_formatter = lambda lg: '{:.0f}'.format(lg) if lg else None
-        if n._length:
+    def _rescaler(factor: Union[int, float], n: newick.Node):
+        n._length_formatter = lambda lg: f'{lg:.0f}' if lg else None  # pylint: disable=W0212
+        if n._length:  # pylint: disable=W0212
             n.length = n.length * factor
 
-    if orig_scaling in RESCALE_TO_YEARS:
-        trees = []
-        for tree in nex.TREES.trees:
-            nwk = tree.newick
-            nwk.visit(functools.partial(_rescaler, RESCALE_TO_YEARS[orig_scaling]))
-            trees.append((tree.name, nwk, tree.rooted))
-        kwarg = nex.TREES.TRANSLATE.mappings if nex.TREES.TRANSLATE else {}
-        kwarg.update(lowercase_command=True)
-        nex.replace_block(nex.TREES, Trees.from_data(*trees, **kwarg))
-        return nex
-    raise ValueError('Cannot rescale {} to years.'.format(orig_scaling))
+    if orig_scaling not in RESCALE_TO_YEARS:
+        raise ValueError(f'Cannot rescale {orig_scaling} to years')
+    year_multiple = RESCALE_TO_YEARS[orig_scaling]
+    trees = []
+    for tree in nex.TREES.trees:
+        nwk = tree.newick
+        nwk.visit(functools.partial(_rescaler, year_multiple))
+        trees.append((tree.name, nwk, tree.rooted))
+    kwarg = nex.TREES.TRANSLATE.mappings if nex.TREES.TRANSLATE else {}
+    kwarg.update(lowercase_command=True)
+    nex.replace_block(nex.TREES, Trees.from_data(*trees, **kwarg))
+    return nex
 
 
 @dataclasses.dataclass
 class Tree:
+    """Data of a tree relevant for serializing as TREE command in Nexus."""
     name: str
-    newick: typing.Union[str, newick.Node]
-    rooted: typing.Optional[bool] = None
+    newick: Union[str, newick.Node]
+    rooted: Optional[bool] = None
 
     def __str__(self):
-        return self.newick if isinstance(self.newick, str) else '{};'.format(self.newick.newick)
+        return self.newick if isinstance(self.newick, str) else f'{self.newick.newick};'
 
 
 class NexusFile:
-    def __init__(self, path, zipped=False):
+    """A Nexus file as context manager, which will write to disk on exit."""
+    def __init__(self, path: PathType, zipped: bool = False):
         self.path = path
         self._trees = []
         self.scaling = None
         self.zipped = zipped
 
-    def append(self,
-               tree: typing.Union[Tree, str, newick.Node],
-               tid: str,
-               lids: typing.List[str],
-               scaling,
-               log,
-               rooted: typing.Optional[bool] = None):
+    def _get_tree(self, tree, tid, rooted) -> tuple[newick.Node, str, Optional[bool]]:
         if isinstance(tree, Tree):
             tid = tid or tree.name
             rooted = rooted or tree.rooted
             tree = tree.newick
         if isinstance(tree, str):
             tree = newick.loads(tree)[0]
+        assert isinstance(tree, newick.Node)
+        return tree, tid, rooted
 
-        def norm(n):
-            n.name = norm_taxon_name(n.name)
-        tree.visit(norm)
+    def append(self,  # pylint: disable=R0917,R0913
+               tree: Union[Tree, str, newick.Node],
+               tid: str,
+               lids: Union[list[str], set[str]],
+               scaling,
+               log: logging.Logger,
+               rooted: Optional[bool] = None):
+        """Add a tree."""
+        tree, tid, rooted = self._get_tree(tree, tid, rooted)
+        tree.visit(norm_taxon_name_visitor)
 
         with_lids = bool(lids)
         if with_lids:
@@ -87,24 +111,22 @@ class NexusFile:
                 continue
             if node.is_leaf:
                 assert node.name
-            if node.name:
+            if node.name and with_lids:
                 try:
-                    if with_lids:
-                        lids.remove(node.name)
-                except KeyError:
+                    lids.remove(node.name)
+                except (ValueError, KeyError):  # set.remove may raise KeyError!
                     if node.is_leaf:
-                        log.error('{} references undefined leaf {}'.format(tree.name, node.name))
+                        log.error('%s references undefined leaf %s', tree.name, node.name)
                     else:  # pragma: no cover
-                        log.warning(
-                            '{} references undefined inner node {}'.format(tree.name, node.name))
+                        log.warning('%s references undefined inner node %s', tree.name, node.name)
 
         if with_lids and lids:
-            log.warning('extra taxa specified in LanguageTable: {}'.format(lids))
+            log.warning('extra taxa specified in LanguageTable: %s', lids)
 
         if self.scaling:
             if scaling != self.scaling:
                 raise ValueError('All trees in a NexusFile must have the same scaling!')
-        else:
+        else:  # First appended tree determines the scaling.
             self.scaling = scaling
         self._trees.append((tid, tree, rooted))
 
@@ -113,8 +135,7 @@ class NexusFile:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._trees:
-            nex = Nexus.from_blocks(
-                Trees.from_data(*self._trees, **dict(lowercase_command=True)))
+            nex = Nexus.from_blocks(Trees.from_data(*self._trees, lowercase_command=True))
             nex.to_file(self.path)
             if self.zipped:
                 with zipfile.ZipFile(

@@ -1,37 +1,34 @@
 """
+Create release instructions for a dataset.
 
+These instructions use the `gh` tool to manipulate the associated GitHub repository.
 """
+import argparse
+
 from cldfbench.cli_util import add_dataset_spec, get_dataset
 
 
-def register(parser):
+def register(parser: argparse.ArgumentParser):  # pylint: disable=C0116
     add_dataset_spec(parser)
     parser.add_argument('tag')
 
 
-def run(args):  # pragma: no cover
+def run(args: argparse.Namespace):  # pragma: no cover  # pylint: disable=C0116
     tag = args.tag
     if not tag.startswith('v'):
         tag = 'v' + tag
     ds = get_dataset(args)
-    cldf = ds.cldf_reader()
+    props = ds.cldf_reader().properties
     ds.dir.joinpath('relnotes.txt').write_text(
-        """\
-Cite the source as
-
-> {}
-
-and the Phlorest phylogeny as
-
-DOI""".format(cldf.properties['dc:bibliographicCitation']),
+        f"Cite the source as\n\n> {props['dc:bibliographicCitation']}\n\n"
+        f"and the Phlorest phylogeny as\n\nDOI",
         encoding='utf8')
-    print('gh release create {} --title "{}" --notes-file relnotes.txt'.format(
-        tag, cldf.properties['dc:title']))
+    print(f'gh release create {tag} --title "{props["dc:title"]}" --notes-file relnotes.txt')
     print('')
     print("Now you should submit the deposit to the phlorest community and\n"
           "grab the Zenodo version DOI from\n"
-          "https://zenodo.org/account/settings/github/repository/phlorest/{0}\n"
+          f"https://zenodo.org/account/settings/github/repository/phlorest/{props['rdf:ID']}\n"
           "and add it to\n"
-          "https://github.com/phlorest/{0}/releases/edit/{1}\n and the concept DOI "
-          "under the key 'zenodo_concept_doi' to "
-          "metdata.json".format(cldf.properties['rdf:ID'], tag))
+          f"https://github.com/phlorest/{props['rdf:ID']}/releases/edit/{tag}\n"
+          f"and the concept DOI under the key 'zenodo_concept_doi' to "
+          "metdata.json")

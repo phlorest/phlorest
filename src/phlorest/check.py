@@ -1,4 +1,8 @@
+"""
+Functionality implementing checking of phlorest datasets.
+"""
 import typing
+import logging
 import dataclasses
 
 from pycldf import Dataset as CLDFDataset
@@ -11,7 +15,7 @@ from phlorest import Dataset, Metadata
 METAKEYS = [f.name for f in dataclasses.fields(Metadata) if f.metadata.get('required')]
 
 
-def run_checks(d: typing.Union[CLDFDataset, Dataset], log) -> bool:
+def run_checks(d: typing.Union[CLDFDataset, Dataset], log: logging.Logger) -> bool:
     """
     Run a couple of Phlorest-specific checks on a dataset.
 
@@ -27,29 +31,26 @@ def run_checks(d: typing.Union[CLDFDataset, Dataset], log) -> bool:
     """
     if isinstance(d, CLDFDataset):
         d = dataset_from_module(
-            d.directory.joinpath('..', 'cldfbench_{}.py'.format(d.properties['rdf:ID'])))
+            d.directory.joinpath('..', f"cldfbench_{d.properties['rdf:ID']}.py"))
 
     success = True
 
     def check(condition, msg):
         if condition:
-            log.warning('{0.id}: {1}'.format(d, msg))
+            log.warning('%s: %s', d.id, msg)
             return False
         return True
 
     # check metadata
     for mdkey in METAKEYS:
         success &= check(
-            not getattr(d.metadata, mdkey, ''),
-            "metadata missing value for `%s`" % mdkey)
+            not getattr(d.metadata, mdkey, ''), f"metadata missing value for `{mdkey}`")
 
     success &= check(
-        not (d.raw_dir / 'sources.bib').exists(),
-        "raw/sources.bib file missing")
+        not (d.raw_dir / 'sources.bib').exists(), "raw/sources.bib file missing")
 
     success &= check(
-        not (d.dir / 'CONTRIBUTORS.md').exists(),
-        "CONTRIBUTORS.md file missing")
+        not (d.dir / 'CONTRIBUTORS.md').exists(), "CONTRIBUTORS.md file missing")
 
     success &= check(
         not ((d.cldf_dir / 'summary.trees').exists() or d.metadata.missing.get('summary')),

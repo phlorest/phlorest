@@ -6,7 +6,7 @@ import pathlib
 from phlorest.scaffold import PhlorestTemplate
 
 
-def register(parser):  # pragma: no cover
+def register(parser):  # pragma: no cover  # pylint: disable=C0116
     parser.add_argument(
         'out',
         help='Directory in which to create the skeleton',
@@ -14,6 +14,6 @@ def register(parser):  # pragma: no cover
         default=pathlib.Path('.'))
 
 
-def run(args):  # pragma: no cover
+def run(args):  # pragma: no cover  # pylint: disable=C0116
     tmpl = PhlorestTemplate()
     tmpl.render(args.out, tmpl.metadata.elicit())

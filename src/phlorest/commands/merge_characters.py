@@ -1,5 +1,5 @@
 """
-
+Assigns sites found in MAPPING to Concepticon conceptset glosses.
 """
 import collections
 
@@ -8,13 +8,17 @@ from clldutils.clilib import PathType
 from cldfbench.cli_util import add_catalog_spec, add_dataset_spec, get_dataset
 
 
-def register(parser):  # pragma: no cover
+def register(parser):  # pragma: no cover  # pylint: disable=C0116
     add_catalog_spec(parser, 'concepticon')
     add_dataset_spec(parser)
-    parser.add_argument('mapping', type=PathType(type='file'))
+    parser.add_argument(
+        'mapping',
+        help="CSV file with columns Site,Label,Word.",
+        metavar="MAPPING",
+        type=PathType(type='file'))
 
 
-def run(args):  # pragma: no cover
+def run(args):  # pragma: no cover  # pylint: disable=C0116
     ds = get_dataset(args)
 
     conceptsets = {cs.gloss: cs for cs in args.concepticon.api.conceptsets.values()}
@@ -22,7 +26,7 @@ def run(args):  # pragma: no cover
     chars = collections.OrderedDict([(c['Site'], c) for c in ds.characters])
     for mapping in reader(args.mapping, dicts=True):
         if mapping['Site'] not in chars:
-            args.log.info('adding {}'.format(mapping))
+            args.log.info('adding %s', mapping)
             chars[mapping['Site']] = collections.OrderedDict(
                 [('Site', mapping['Site']), ('Label', mapping['Label'])])
         else:
