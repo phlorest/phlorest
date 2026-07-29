@@ -1,7 +1,7 @@
 import collections
 import urllib.parse
+import dataclasses
 
-import attr
 import cldfbench
 
 __all__ = ['SCALING', 'RESCALE_TO_YEARS', 'Metadata']
@@ -31,29 +31,38 @@ RESCALE_TO_YEARS = {
 }
 
 
-@attr.s
+@dataclasses.dataclass
 class Metadata(cldfbench.Metadata):
-    name = attr.ib(default=None, metadata=dict(required=True))
-    author = attr.ib(default=None, metadata=dict(required=True))
-    year = attr.ib(default=None)
-    scaling = attr.ib(
-        default='none',
-        validator=attr.validators.in_(SCALING),
-        metadata=dict(required=True))
-    analysis = attr.ib(
-        default='none',
-        validator=attr.validators.in_(ANALYSES),
-        metadata=dict(required=True))
-    family = attr.ib(default=None, metadata=dict(required=True))
-    cldf = attr.ib(
-        default=None,
-        converter=lambda s: 'https://{}'.format(s) if s and s.startswith('github.com') else s)
-    data = attr.ib(default=None)
-    artefacts = attr.ib(default=None)
-    missing = attr.ib(default=attr.Factory(dict))
-    zenodo_concept_doi = attr.ib(default=None)
+    name: str = dataclasses.field(default=None, metadata=dict(required=True))
+    author: str = dataclasses.field(default=None, metadata=dict(required=True))
+    year: str = None
+    scaling: str = dataclasses.field(default='none', metadata=dict(required=True))
+    analysis: str = dataclasses.field(default='none', metadata=dict(required=True))
+    family: str = dataclasses.field(default=None, metadata=dict(required=True))
+    cldf: str = None
+    data: str = None
+    artefacts: list = None
+    missing: dict = dataclasses.field(default_factory=dict)
+    zenodo_concept_doi: str = None
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
+        # Call a parent __post_init__ should a future cldfbench add one.
+        parent_post_init = getattr(super(), '__post_init__', None)
+        if parent_post_init:  # pragma: no cover
+            parent_post_init()
+
+        # Formerly attrs validators on the `scaling` and `analysis` fields.
+        if self.scaling not in SCALING:
+            raise ValueError(
+                "'scaling' must be one of {} (got {!r})".format(SCALING, self.scaling))
+        if self.analysis not in ANALYSES:
+            raise ValueError(
+                "'analysis' must be one of {} (got {!r})".format(ANALYSES, self.analysis))
+
+        # Formerly an attrs converter on the `cldf` field.
+        if self.cldf and self.cldf.startswith('github.com'):
+            self.cldf = 'https://{}'.format(self.cldf)
+
         if self.url:
             u = urllib.parse.urlparse(self.url)
             if u.netloc == 'dx.doi.org':

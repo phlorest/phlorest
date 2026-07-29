@@ -1,14 +1,14 @@
 import typing
+import dataclasses
 
 from pycldf import Dataset as CLDFDataset
 
-import attr
 from cldfbench.dataset import dataset_from_module
 
 from phlorest import Dataset, Metadata
 
 # values in metadata.json that should be present and should not be empty
-METAKEYS = [a.name for a in attr.fields(Metadata) if a.metadata.get('required')]
+METAKEYS = [f.name for f in dataclasses.fields(Metadata) if f.metadata.get('required')]
 
 
 def run_checks(d: typing.Union[CLDFDataset, Dataset], log) -> bool:
