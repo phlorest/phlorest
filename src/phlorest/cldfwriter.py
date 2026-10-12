@@ -164,7 +164,7 @@ class CLDFWriter(cldfbench.CLDFWriter):
             Tree_Is_Rooted=rooted,
             Tree_Type=type_,
             Description=metadata.analysis,
-            Tree_Branch_Length_Unit=None if nex.scaling in {'none', 'arbitrary'} else nex.scaling,
+            Tree_Branch_Length_Unit=None if nex.scaling in {'none', 'distance', 'relative'} else nex.scaling,
             Source=[source] if isinstance(source, str) else source,
         ))
 

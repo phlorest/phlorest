@@ -11,10 +11,11 @@ import cldfbench
 __all__ = ['SCALING', 'RESCALE_TO_YEARS', 'Metadata', 'YearMultiplesType', 'ScalingType']
 
 ScalingType = Literal[
-    'none',  # no branch lengths
+    'none',  # no branch lengths, or all equal
     'change',  # parsimony steps
-    'arbitrary',  # meaningless -- arbitrary
-    'substitutions',  # change
+    'distance',  # distance-method units (NJ, UPGMA)
+    'substitutions',  # expected changes per character, incl. uncalibrated clocks with rate fixed at 1
+    'relative',  # proportional to time, but uncalibrated
     'years',  # years
     'centuries',  # centuries
     'millennia',  # millennia
@@ -31,7 +32,7 @@ AnalysesType = Literal[
     'none',  # override.
 ]
 ANALYSES = list(get_args(AnalysesType))
-YearMultiplesType = Literal['centuries', 'millenia']
+YearMultiplesType = Literal['centuries', 'millennia']
 RESCALE_TO_YEARS = {
     'centuries': 100,
     'millennia': 1000,
